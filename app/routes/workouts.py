@@ -11,12 +11,14 @@ from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
 from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutStatus
+from app.schemas.move import MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
     CompletedWorkoutOut,
     ReconciliationOut,
     WorkoutDetailOut,
 )
+from app.services.agents.plan_adapter import propose_rebalance
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -77,3 +79,24 @@ async def skip_workout(
     planned.status = WorkoutStatus.skipped
     await db.commit()
     return {"ok": True}
+
+
+@router.patch("/{workout_id}/move", response_model=ProposalOut)
+async def move_workout(
+    workout_id: uuid.UUID,
+    body: MoveRequest,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(PlannedWorkout)
+        .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+        .join(Plan, Cycle.plan_id == Plan.id)
+        .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+    )
+    planned = result.scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    proposal = await propose_rebalance(db, athlete.id, workout_id, body.new_date)
+    return ProposalOut(**proposal)
