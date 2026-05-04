@@ -10,7 +10,7 @@ from app.deps import get_current_athlete, get_db
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
-from app.models.workout import CompletedWorkout, PlannedWorkout
+from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutStatus
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
     CompletedWorkoutOut,
@@ -56,3 +56,24 @@ async def workout_detail(
         completed=CompletedWorkoutOut.model_validate(completed) if completed else None,
         reconciliation=ReconciliationOut.model_validate(recon) if recon else None,
     )
+
+
+@router.patch("/{workout_id}/skip")
+async def skip_workout(
+    workout_id: uuid.UUID,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(PlannedWorkout)
+        .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+        .join(Plan, Cycle.plan_id == Plan.id)
+        .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+    )
+    planned = result.scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    planned.status = WorkoutStatus.skipped
+    await db.commit()
+    return {"ok": True}
