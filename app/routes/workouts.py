@@ -127,8 +127,7 @@ async def apply_move(
     result = await db.execute(
         select(AgentMessage).where(
             AgentMessage.related_workout_id == workout_id,
-            AgentMessage.proposal_state_json["proposal_id"].as_string()
-            == str(body.proposal_id),
+            AgentMessage.proposal_state_json["proposal_id"].as_string() == str(body.proposal_id),
         )
     )
     msg = result.scalar_one_or_none()
@@ -175,9 +174,7 @@ async def apply_move(
         value = edit["new_value"]
 
         if field not in ("scheduled_date", "status"):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid edit field: {field}"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid edit field: {field}")
 
         # Find the target workout and verify it belongs to this athlete
         result = await db.execute(

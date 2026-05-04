@@ -1,11 +1,9 @@
-import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.lib.workout_family import family_for_planned
 from app.models.agent import AgentMessage

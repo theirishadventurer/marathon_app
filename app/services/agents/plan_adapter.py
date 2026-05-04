@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models.agent import AgentKind, AgentMessage, MessageRole
-from app.models.plan import Cycle, Plan
+from app.models.plan import Cycle
 from app.models.workout import CompletedWorkout, PlannedWorkout
 
 
@@ -22,7 +22,8 @@ def get_anthropic_client() -> anthropic.AsyncAnthropic:
 COACH_SYSTEM_PROMPT = (
     "You are a marathon coach working with this athlete on a 12-month, three-marathon plan.\n"
     "When the athlete moves a workout, analyze the impact and propose 2 rebalance options.\n"
-    "Consider: hard-day stacking, long run proximity to strength, plan philosophy (durability over peak fitness).\n"
+    "Consider: hard-day stacking, long run proximity to strength, "
+    "plan philosophy (durability over peak fitness).\n"
     "Be specific about which workouts to adjust and why."
 )
 
@@ -136,8 +137,7 @@ async def _build_adapter_context(
     for monday in week_starts:
         sunday = monday + timedelta(days=6)
         week_conditions.append(
-            (PlannedWorkout.scheduled_date >= monday)
-            & (PlannedWorkout.scheduled_date <= sunday)
+            (PlannedWorkout.scheduled_date >= monday) & (PlannedWorkout.scheduled_date <= sunday)
         )
 
     from sqlalchemy import or_
@@ -189,7 +189,7 @@ async def propose_rebalance(
     moved = context["moved_workout"]
     user_message = (
         f"The athlete is moving their {moved['type']} workout "
-        f"(\"{moved['title']}\") from {moved['scheduled_date']} to {context['new_date']}.\n\n"
+        f'("{moved["title"]}") from {moved["scheduled_date"]} to {context["new_date"]}.\n\n'
         f"Plan philosophy: {context['plan_philosophy']}\n\n"
         f"Current week layout:\n"
         + json.dumps(context["week_workouts"], indent=2)
