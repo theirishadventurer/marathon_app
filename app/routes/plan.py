@@ -5,7 +5,6 @@ import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.deps import get_current_athlete, get_db
 from app.models.athlete import Athlete
@@ -62,6 +61,7 @@ async def plan_current(
     plan = await _active_plan(db, athlete.id)
     if plan is None:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="No active plan")
 
     today = datetime.date.today()

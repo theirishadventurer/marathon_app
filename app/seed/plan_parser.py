@@ -36,7 +36,13 @@ CYCLES = [
 ]
 
 DAY_OFFSETS = {
-    "Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6,
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
 }
 
 # Title templates per workout type
@@ -80,7 +86,7 @@ def _parse_athlete_yaml(yaml_block: str) -> dict:
 
     # hr_zones
     zones: dict[str, list[int]] = {}
-    for zm in re.finditer(r'(z\d):\s*\[(\d+),\s*(\d+)\]', yaml_block):
+    for zm in re.finditer(r"(z\d):\s*\[(\d+),\s*(\d+)\]", yaml_block):
         zones[zm.group(1)] = [int(zm.group(2)), int(zm.group(3))]
     athlete["hr_zones"] = zones
 
@@ -93,7 +99,7 @@ def _parse_athlete_yaml(yaml_block: str) -> dict:
     athlete["pace_targets"] = paces
 
     # injury_notes — everything after injury_notes_md: |
-    inj_match = re.search(r'injury_notes_md:\s*\|\n((?:[ \t]+.+\n?)+)', yaml_block)
+    inj_match = re.search(r"injury_notes_md:\s*\|\n((?:[ \t]+.+\n?)+)", yaml_block)
     athlete["injury_notes"] = inj_match.group(1).strip() if inj_match else ""
 
     return athlete
@@ -102,7 +108,7 @@ def _parse_athlete_yaml(yaml_block: str) -> dict:
 def _parse_philosophy(text: str) -> str:
     """Extract the Plan Philosophy markdown code block."""
     m = re.search(
-        r'## Plan Philosophy.*?```markdown\s*\n(.*?)```',
+        r"## Plan Philosophy.*?```markdown\s*\n(.*?)```",
         text,
         re.DOTALL,
     )
@@ -116,13 +122,13 @@ def _parse_workout_tables(text: str) -> list[list[dict]]:
     """
     # Find the three phase code blocks — they come after Phase N headers
     # Each is a ``` ... ``` block that contains WEEK lines and workout lines
-    phase_sections = re.split(r'^# Phase \d', text, flags=re.MULTILINE)
+    phase_sections = re.split(r"^# Phase \d", text, flags=re.MULTILINE)
     # phase_sections[0] is everything before Phase 1; [1], [2], [3] are the phases
 
     all_phases: list[list[dict]] = []
     for section in phase_sections[1:]:
         # Find the code block in this section
-        code_match = re.search(r'```\n(.*?)```', section, re.DOTALL)
+        code_match = re.search(r"```\n(.*?)```", section, re.DOTALL)
         if not code_match:
             continue
         code_block = code_match.group(1)
@@ -143,7 +149,7 @@ def _parse_code_block(block: str) -> list[dict]:
             continue
 
         # Check for WEEK header
-        week_match = re.match(r'^WEEK\s+(\d+)', line)
+        week_match = re.match(r"^WEEK\s+(\d+)", line)
         if week_match:
             current_week = int(week_match.group(1))
             continue
@@ -176,15 +182,17 @@ def _parse_code_block(block: str) -> list[dict]:
             except ValueError:
                 dur = None
 
-        workouts.append({
-            "week_number": current_week,
-            "day": day_str,
-            "type": workout_type,
-            "distance_mi": dist,
-            "duration_min": dur,
-            "description_md": description,
-            "intent_md": intent,
-        })
+        workouts.append(
+            {
+                "week_number": current_week,
+                "day": day_str,
+                "type": workout_type,
+                "distance_mi": dist,
+                "duration_min": dur,
+                "description_md": description,
+                "intent_md": intent,
+            }
+        )
 
     return workouts
 
@@ -201,7 +209,7 @@ def parse_plan(plan_path: str) -> dict:
     text = Path(plan_path).read_text(encoding="utf-8")
 
     # --- Athlete profile ---
-    yaml_match = re.search(r'```yaml\s*\n(.*?)```', text, re.DOTALL)
+    yaml_match = re.search(r"```yaml\s*\n(.*?)```", text, re.DOTALL)
     athlete = _parse_athlete_yaml(yaml_match.group(1)) if yaml_match else {}
 
     # --- Philosophy ---
@@ -220,32 +228,34 @@ def parse_plan(plan_path: str) -> dict:
         dated_workouts: list[dict] = []
         for w in raw_workouts:
             day_offset = DAY_OFFSETS.get(w["day"], 0)
-            workout_date = start + timedelta(
-                weeks=w["week_number"] - 1, days=day_offset
-            )
+            workout_date = start + timedelta(weeks=w["week_number"] - 1, days=day_offset)
             title = _build_title(w["type"], w["distance_mi"])
 
-            dated_workouts.append({
-                "week_number": w["week_number"],
-                "day": w["day"],
-                "type": w["type"],
-                "date": workout_date,
-                "distance_mi": w["distance_mi"],
-                "duration_min": w["duration_min"],
-                "title": title,
-                "description_md": w["description_md"],
-                "intent_md": w["intent_md"],
-            })
+            dated_workouts.append(
+                {
+                    "week_number": w["week_number"],
+                    "day": w["day"],
+                    "type": w["type"],
+                    "date": workout_date,
+                    "distance_mi": w["distance_mi"],
+                    "duration_min": w["duration_min"],
+                    "title": title,
+                    "description_md": w["description_md"],
+                    "intent_md": w["intent_md"],
+                }
+            )
 
-        cycles.append({
-            "name": cycle_meta["name"],
-            "sequence": cycle_meta["sequence"],
-            "race_name": cycle_meta["race_name"],
-            "race_date": cycle_meta["race_date"],
-            "start_date": start,
-            "end_date": end,
-            "workouts": dated_workouts,
-        })
+        cycles.append(
+            {
+                "name": cycle_meta["name"],
+                "sequence": cycle_meta["sequence"],
+                "race_name": cycle_meta["race_name"],
+                "race_date": cycle_meta["race_date"],
+                "start_date": start,
+                "end_date": end,
+                "workouts": dated_workouts,
+            }
+        )
 
     return {
         "athlete": athlete,

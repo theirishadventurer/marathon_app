@@ -22,6 +22,4 @@ class GarminAuthState(Base):
     last_successful_sync: Mapped[datetime | None] = mapped_column(nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_error_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    needs_reauth: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="false"
-    )
+    needs_reauth: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")

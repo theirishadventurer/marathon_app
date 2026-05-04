@@ -20,7 +20,6 @@ from app.models.workout import (
 )
 from app.services.reconciler import reconcile
 
-
 # ── helpers ───────────────────────────────────────────────────────────
 
 
@@ -138,7 +137,7 @@ async def test_no_match_creates_bonus(db: AsyncSession, athlete: Athlete):
 @pytest.mark.asyncio
 async def test_idempotent(db: AsyncSession, athlete: Athlete):
     d = date(2026, 5, 1)
-    pw = await _create_plan_with_workout(db, athlete.id, d)
+    await _create_plan_with_workout(db, athlete.id, d)
     cw = _make_completed(athlete.id, d, garmin_id=3)
     db.add(cw)
     await db.flush()
@@ -151,8 +150,8 @@ async def test_idempotent(db: AsyncSession, athlete: Athlete):
     assert report2["skipped"] == 0
 
     count = (
-        await db.execute(
-            select(Reconciliation).where(Reconciliation.completed_id == cw.id)
-        )
-    ).scalars().all()
+        (await db.execute(select(Reconciliation).where(Reconciliation.completed_id == cw.id)))
+        .scalars()
+        .all()
+    )
     assert len(count) == 1

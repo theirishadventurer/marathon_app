@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,9 +38,7 @@ async def seed_plan(
     athlete_data = data["athlete"]
 
     # --- Upsert athlete by email ---
-    result = await db.execute(
-        select(Athlete).where(Athlete.email == athlete_data["email"])
-    )
+    result = await db.execute(select(Athlete).where(Athlete.email == athlete_data["email"]))
     athlete = result.scalar_one_or_none()
     if athlete is None:
         athlete = Athlete(
@@ -99,18 +96,16 @@ async def seed_plan(
 
         # Check if workouts already exist for this cycle (skip if so)
         existing = await db.execute(
-            select(PlannedWorkout.id).where(
-                PlannedWorkout.cycle_id == cycle.id
-            ).limit(1)
+            select(PlannedWorkout.id).where(PlannedWorkout.cycle_id == cycle.id).limit(1)
         )
         if existing.scalar_one_or_none() is not None:
             # Workouts already seeded for this cycle — count them
             from sqlalchemy import func
 
             count_result = await db.execute(
-                select(func.count()).select_from(PlannedWorkout).where(
-                    PlannedWorkout.cycle_id == cycle.id
-                )
+                select(func.count())
+                .select_from(PlannedWorkout)
+                .where(PlannedWorkout.cycle_id == cycle.id)
             )
             total_workouts += count_result.scalar()
             continue

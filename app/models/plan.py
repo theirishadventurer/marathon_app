@@ -1,7 +1,10 @@
-from __future__ import annotations
-
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.athlete import Athlete
+    from app.models.workout import PlannedWorkout
 
 from sqlalchemy import Boolean, Date, ForeignKey, SmallInteger, Text, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -21,15 +24,9 @@ class Plan(UUIDMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
-    philosophy_md: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=""
-    )
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="true"
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), nullable=False
-    )
+    philosophy_md: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     # Relationships
     athlete: Mapped["Athlete"] = relationship(back_populates="plans")
@@ -50,13 +47,9 @@ class Cycle(UUIDMixin, Base):
     race_date: Mapped[date] = mapped_column(Date, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
-    peak_week_target: Mapped[int | None] = mapped_column(
-        SmallInteger, nullable=True
-    )
+    peak_week_target: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     notes_md: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
     # Relationships
     plan: Mapped["Plan"] = relationship(back_populates="cycles")
-    planned_workouts: Mapped[list["PlannedWorkout"]] = relationship(
-        back_populates="cycle"
-    )
+    planned_workouts: Mapped[list["PlannedWorkout"]] = relationship(back_populates="cycle")

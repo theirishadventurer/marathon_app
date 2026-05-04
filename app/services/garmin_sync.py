@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -63,9 +62,7 @@ class GarminSyncService:
 
         # Upsert GarminAuthState
         result = await self.db.execute(
-            select(GarminAuthState).where(
-                GarminAuthState.athlete_id == self.athlete_id
-            )
+            select(GarminAuthState).where(GarminAuthState.athlete_id == self.athlete_id)
         )
         state = result.scalar_one_or_none()
         if state is None:
@@ -147,7 +144,7 @@ class GarminSyncService:
                 athlete_id=self.athlete_id,
                 garmin_activity_id=gid,
                 activity_date=date.fromisoformat(started[:10]) if started else since_date,
-                started_at=datetime.fromisoformat(started) if started else datetime.now(timezone.utc),
+                started_at=datetime.fromisoformat(started) if started else datetime.now(UTC),
                 activity_type=activity_type,
                 family=family_for_garmin_activity_type(activity_type),
                 duration_s=int(act.get("duration", 0)),
@@ -179,9 +176,7 @@ class GarminSyncService:
             return []
 
         try:
-            stats = await asyncio.to_thread(
-                client.get_daily_stats, since_date.isoformat()
-            )
+            stats = await asyncio.to_thread(client.get_daily_stats, since_date.isoformat())
         except GarminConnectAuthenticationError as exc:
             await self._mark_needs_reauth(str(exc))
             return []
@@ -261,13 +256,11 @@ class GarminSyncService:
 
         # Update last_successful_sync
         result = await self.db.execute(
-            select(GarminAuthState).where(
-                GarminAuthState.athlete_id == self.athlete_id
-            )
+            select(GarminAuthState).where(GarminAuthState.athlete_id == self.athlete_id)
         )
         state = result.scalar_one_or_none()
         if state is not None:
-            state.last_successful_sync = datetime.now(timezone.utc)
+            state.last_successful_sync = datetime.now(UTC)
 
         await self.db.commit()
         return report
@@ -278,13 +271,11 @@ class GarminSyncService:
 
     async def _mark_needs_reauth(self, error: str) -> None:
         result = await self.db.execute(
-            select(GarminAuthState).where(
-                GarminAuthState.athlete_id == self.athlete_id
-            )
+            select(GarminAuthState).where(GarminAuthState.athlete_id == self.athlete_id)
         )
         state = result.scalar_one_or_none()
         if state is not None:
             state.needs_reauth = True
             state.last_error = error
-            state.last_error_at = datetime.now(timezone.utc)
+            state.last_error_at = datetime.now(UTC)
             await self.db.commit()

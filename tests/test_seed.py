@@ -10,6 +10,7 @@ from app.models.workout import PlannedWorkout
 @pytest.mark.asyncio
 async def test_plan_parser_parses_plan_md():
     from app.seed.plan_parser import parse_plan
+
     data = parse_plan("PLAN.md")
     assert data["athlete"]["name"] != ""
     assert len(data["cycles"]) == 3
@@ -24,6 +25,7 @@ async def test_plan_parser_parses_plan_md():
 @pytest.mark.asyncio
 async def test_seed_creates_correct_counts(db: AsyncSession):
     from app.seed.load_plan import seed_plan
+
     await seed_plan(db, plan_path="PLAN.md", password="testpass")
     athlete_count = (await db.execute(select(func.count()).select_from(Athlete))).scalar()
     assert athlete_count == 1
@@ -38,6 +40,7 @@ async def test_seed_creates_correct_counts(db: AsyncSession):
 @pytest.mark.asyncio
 async def test_seed_is_idempotent(db: AsyncSession):
     from app.seed.load_plan import seed_plan
+
     await seed_plan(db, plan_path="PLAN.md", password="testpass")
     await seed_plan(db, plan_path="PLAN.md", password="testpass")
     workout_count = (await db.execute(select(func.count()).select_from(PlannedWorkout))).scalar()

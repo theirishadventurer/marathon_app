@@ -28,9 +28,7 @@ async def status(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(GarminAuthState).where(
-            GarminAuthState.athlete_id == athlete.id
-        )
+        select(GarminAuthState).where(GarminAuthState.athlete_id == athlete.id)
     )
     state = result.scalar_one_or_none()
     if state is None:

@@ -35,14 +35,8 @@ class Reconciliation(UUIDMixin, Base):
         ForeignKey("completed_workouts.id", ondelete="SET NULL"),
         nullable=True,
     )
-    match_confidence: Mapped[Decimal | None] = mapped_column(
-        Numeric(3, 2), nullable=True
-    )
-    deviation_notes_md: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=""
-    )
+    match_confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), nullable=True)
+    deviation_notes_md: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     agent_review_md: Mapped[str | None] = mapped_column(Text, nullable=True)
     agent_reviewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)

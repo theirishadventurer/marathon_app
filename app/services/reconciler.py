@@ -25,26 +25,27 @@ async def reconcile(db: AsyncSession, athlete_id) -> dict[str, Any]:
     skipped = 0
 
     # ── 1. Find all unmatched completed workouts ──────────────────────
-    existing_completed_ids = (
-        select(Reconciliation.completed_id)
-        .where(Reconciliation.completed_id.is_not(None))
+    existing_completed_ids = select(Reconciliation.completed_id).where(
+        Reconciliation.completed_id.is_not(None)
     )
     unmatched_completed = (
-        await db.execute(
-            select(CompletedWorkout)
-            .where(
-                CompletedWorkout.athlete_id == athlete_id,
-                CompletedWorkout.id.not_in(existing_completed_ids),
+        (
+            await db.execute(
+                select(CompletedWorkout).where(
+                    CompletedWorkout.athlete_id == athlete_id,
+                    CompletedWorkout.id.not_in(existing_completed_ids),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # ── 2. For each unmatched completed workout, find candidates ──────
     for cw in unmatched_completed:
         # Subquery: planned_ids that already have a reconciliation
-        reconciled_planned_ids = (
-            select(Reconciliation.planned_id)
-            .where(Reconciliation.planned_id.is_not(None))
+        reconciled_planned_ids = select(Reconciliation.planned_id).where(
+            Reconciliation.planned_id.is_not(None)
         )
 
         # Find candidate planned workouts via join to cycle -> plan
@@ -60,48 +61,51 @@ async def reconcile(db: AsyncSession, athlete_id) -> dict[str, Any]:
                 PlannedWorkout.id.not_in(reconciled_planned_ids),
             )
         )
-        candidates: list[PlannedWorkout] = list(
-            (await db.execute(candidates_q)).scalars().all()
-        )
+        candidates: list[PlannedWorkout] = list((await db.execute(candidates_q)).scalars().all())
 
         if len(candidates) == 0:
             # Bonus / unscheduled run
-            db.add(Reconciliation(
-                athlete_id=athlete_id,
-                planned_id=None,
-                completed_id=cw.id,
-                match_confidence=None,
-            ))
+            db.add(
+                Reconciliation(
+                    athlete_id=athlete_id,
+                    planned_id=None,
+                    completed_id=cw.id,
+                    match_confidence=None,
+                )
+            )
             bonus += 1
 
         elif len(candidates) == 1:
             pw = candidates[0]
-            db.add(Reconciliation(
-                athlete_id=athlete_id,
-                planned_id=pw.id,
-                completed_id=cw.id,
-                match_confidence=Decimal("1.00"),
-            ))
+            db.add(
+                Reconciliation(
+                    athlete_id=athlete_id,
+                    planned_id=pw.id,
+                    completed_id=cw.id,
+                    match_confidence=Decimal("1.00"),
+                )
+            )
             pw.status = WorkoutStatus.done
             matched += 1
 
         else:
             # 2+ matches: pick closest by distance, fall back to duration
             best = _pick_best_candidate(candidates, cw)
-            db.add(Reconciliation(
-                athlete_id=athlete_id,
-                planned_id=best.id,
-                completed_id=cw.id,
-                match_confidence=Decimal("0.70"),
-            ))
+            db.add(
+                Reconciliation(
+                    athlete_id=athlete_id,
+                    planned_id=best.id,
+                    completed_id=cw.id,
+                    match_confidence=Decimal("0.70"),
+                )
+            )
             best.status = WorkoutStatus.done
             matched += 1
 
     # ── 3. Detect skipped workouts ────────────────────────────────────
     yesterday = date.today() - timedelta(days=1)
-    reconciled_planned_ids_2 = (
-        select(Reconciliation.planned_id)
-        .where(Reconciliation.planned_id.is_not(None))
+    reconciled_planned_ids_2 = select(Reconciliation.planned_id).where(
+        Reconciliation.planned_id.is_not(None)
     )
     skipped_q = (
         select(PlannedWorkout)
@@ -114,16 +118,16 @@ async def reconcile(db: AsyncSession, athlete_id) -> dict[str, Any]:
             PlannedWorkout.id.not_in(reconciled_planned_ids_2),
         )
     )
-    skipped_workouts: list[PlannedWorkout] = list(
-        (await db.execute(skipped_q)).scalars().all()
-    )
+    skipped_workouts: list[PlannedWorkout] = list((await db.execute(skipped_q)).scalars().all())
     for pw in skipped_workouts:
-        db.add(Reconciliation(
-            athlete_id=athlete_id,
-            planned_id=pw.id,
-            completed_id=None,
-            match_confidence=None,
-        ))
+        db.add(
+            Reconciliation(
+                athlete_id=athlete_id,
+                planned_id=pw.id,
+                completed_id=None,
+                match_confidence=None,
+            )
+        )
         pw.status = WorkoutStatus.skipped
         skipped += 1
 
@@ -139,10 +143,12 @@ def _pick_best_candidate(
     completed_m = completed.distance_m
 
     if completed_m is not None:
+
         def dist_delta(pw: PlannedWorkout) -> Decimal:
             if pw.distance_mi is not None:
                 return abs(pw.distance_mi * MI_TO_M - completed_m)
             return Decimal("999999")
+
         return min(candidates, key=dist_delta)
 
     # Fallback: duration

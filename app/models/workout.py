@@ -1,10 +1,11 @@
-from __future__ import annotations
-
 import enum
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.plan import Cycle
 
 from sqlalchemy import (
     BigInteger,
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class WorkoutType(str, enum.Enum):
+class WorkoutType(enum.StrEnum):
     easy = "easy"
     long = "long"
     tempo = "tempo"
@@ -39,13 +40,13 @@ class WorkoutType(str, enum.Enum):
     race = "race"
 
 
-class WorkoutFamily(str, enum.Enum):
+class WorkoutFamily(enum.StrEnum):
     running = "running"
     strength = "strength"
     other = "other"
 
 
-class WorkoutStatus(str, enum.Enum):
+class WorkoutStatus(enum.StrEnum):
     planned = "planned"
     moved = "moved"
     skipped = "skipped"
@@ -77,17 +78,13 @@ class PlannedWorkout(UUIDMixin, TimestampMixin, Base):
     )
 
     duration_min: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    distance_mi: Mapped[Decimal | None] = mapped_column(
-        Numeric(4, 1), nullable=True
-    )
+    distance_mi: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)
     target_pace: Mapped[str | None] = mapped_column(Text, nullable=True)
     target_hr_zone: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description_md: Mapped[str] = mapped_column(Text, nullable=False)
-    intent_md: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=""
-    )
+    intent_md: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
     # Relationships
     cycle: Mapped["Cycle"] = relationship(back_populates="planned_workouts")
@@ -102,9 +99,7 @@ class CompletedWorkout(UUIDMixin, Base):
         nullable=False,
     )
 
-    garmin_activity_id: Mapped[int] = mapped_column(
-        BigInteger, unique=True, nullable=False
-    )
+    garmin_activity_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     activity_date: Mapped[date] = mapped_column(Date, nullable=False)
     started_at: Mapped[datetime] = mapped_column(nullable=False)
     activity_type: Mapped[str] = mapped_column(Text, nullable=False)
@@ -114,23 +109,13 @@ class CompletedWorkout(UUIDMixin, Base):
     )
 
     duration_s: Mapped[int] = mapped_column(Integer, nullable=False)
-    distance_m: Mapped[Decimal | None] = mapped_column(
-        Numeric(8, 2), nullable=True
-    )
+    distance_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
     avg_hr: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     max_hr: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    avg_pace_s_per_km: Mapped[int | None] = mapped_column(
-        SmallInteger, nullable=True
-    )
-    elevation_gain_m: Mapped[Decimal | None] = mapped_column(
-        Numeric(6, 1), nullable=True
-    )
+    avg_pace_s_per_km: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    elevation_gain_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
     calories: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     fit_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    raw_summary_json: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False
-    )
-    synced_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), nullable=False
-    )
+    raw_summary_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    synced_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)

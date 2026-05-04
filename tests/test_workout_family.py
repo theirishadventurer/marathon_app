@@ -10,9 +10,15 @@ def test_all_workout_types_map_to_family():
 
 def test_running_family():
     running_types = [
-        WorkoutType.easy, WorkoutType.long, WorkoutType.tempo,
-        WorkoutType.intervals, WorkoutType.hills, WorkoutType.mp_long,
-        WorkoutType.recovery, WorkoutType.strides, WorkoutType.race,
+        WorkoutType.easy,
+        WorkoutType.long,
+        WorkoutType.tempo,
+        WorkoutType.intervals,
+        WorkoutType.hills,
+        WorkoutType.mp_long,
+        WorkoutType.recovery,
+        WorkoutType.strides,
+        WorkoutType.race,
     ]
     for wt in running_types:
         assert family_for_planned(wt) == WorkoutFamily.running

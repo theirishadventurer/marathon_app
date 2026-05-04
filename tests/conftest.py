@@ -1,5 +1,5 @@
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -58,6 +58,7 @@ async def athlete(db: AsyncSession) -> Athlete:
 @pytest.fixture
 async def auth_token(athlete: Athlete) -> str:
     from app.auth import create_access_token
+
     token, _ = create_access_token(str(athlete.id))
     return token
 

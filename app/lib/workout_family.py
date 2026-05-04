@@ -17,8 +17,12 @@ _PLANNED_TO_FAMILY: dict[WorkoutType, WorkoutFamily] = {
 }
 
 _GARMIN_RUNNING_TYPES = {
-    "running", "trail_running", "treadmill_running", "track_running",
-    "indoor_running", "virtual_run",
+    "running",
+    "trail_running",
+    "treadmill_running",
+    "track_running",
+    "indoor_running",
+    "virtual_run",
 }
 
 _GARMIN_STRENGTH_TYPES = {"strength_training"}
