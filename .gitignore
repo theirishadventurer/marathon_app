@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+*.egg-info/
+dist/
+.venv/
+data/
+.pytest_cache/
+.ruff_cache/
+alembic/versions/*.pyc
+node_modules/
+mobile/.expo/
