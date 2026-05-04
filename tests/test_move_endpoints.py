@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -8,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.lib.workout_family import family_for_planned
+from app.models.agent import AgentKind, AgentMessage, MessageRole
 from app.models.plan import Cycle, Plan
 from app.models.workout import PlannedWorkout, WorkoutStatus, WorkoutType
 
@@ -90,6 +92,130 @@ async def test_move_workout_not_found(client, athlete, auth_headers):
     resp = await client.patch(
         f"/workouts/{fake_id}/move",
         json={"new_date": "2026-06-04"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# apply-move helpers & tests
+# ---------------------------------------------------------------------------
+
+
+async def _create_proposal(db, athlete_id, workout, option_edits=None):
+    """Create a proposal agent_message for testing."""
+    proposal_id = uuid.uuid4()
+    new_date = workout.scheduled_date + datetime.timedelta(days=1)
+    msg = AgentMessage(
+        athlete_id=athlete_id,
+        agent=AgentKind.plan_adapter,
+        role=MessageRole.assistant,
+        content_md="Test proposal",
+        related_workout_id=workout.id,
+        proposal_state_json={
+            "proposal_id": str(proposal_id),
+            "original_date": workout.scheduled_date.isoformat(),
+            "new_date": new_date.isoformat(),
+            "options": [
+                {
+                    "id": "option_a",
+                    "label": "Option A",
+                    "tradeoff": "Tradeoff A",
+                    "edits": option_edits or [],
+                    "rationale": "Rationale A",
+                },
+                {
+                    "id": "option_b",
+                    "label": "Option B",
+                    "tradeoff": "Tradeoff B",
+                    "edits": [],
+                    "rationale": "Rationale B",
+                },
+            ],
+            "state": "pending",
+        },
+    )
+    db.add(msg)
+    await db.commit()
+    return proposal_id
+
+
+@pytest.mark.asyncio
+async def test_apply_move_just_move(client, db, athlete, auth_headers):
+    pw = await _seed_workout(db, athlete.id, date(2026, 6, 3))
+    proposal_id = await _create_proposal(db, athlete.id, pw)
+
+    resp = await client.post(
+        f"/workouts/{pw.id}/apply-move",
+        json={"proposal_id": str(proposal_id), "choice": "just_move"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+    await db.refresh(pw)
+    assert pw.scheduled_date == date(2026, 6, 4)
+    assert pw.status == WorkoutStatus.moved
+    assert pw.original_date == date(2026, 6, 3)
+
+
+@pytest.mark.asyncio
+async def test_apply_move_cancel(client, db, athlete, auth_headers):
+    pw = await _seed_workout(db, athlete.id, date(2026, 6, 3))
+    proposal_id = await _create_proposal(db, athlete.id, pw)
+
+    resp = await client.post(
+        f"/workouts/{pw.id}/apply-move",
+        json={"proposal_id": str(proposal_id), "choice": "cancel"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+    await db.refresh(pw)
+    assert pw.scheduled_date == date(2026, 6, 3)
+    assert pw.status == WorkoutStatus.planned
+
+
+@pytest.mark.asyncio
+async def test_apply_move_option_a_with_edits(client, db, athlete, auth_headers):
+    pw1 = await _seed_workout(db, athlete.id, date(2026, 6, 3))
+    pw2 = await _seed_workout(db, athlete.id, date(2026, 6, 5))
+
+    option_edits = [
+        {
+            "workout_id": str(pw2.id),
+            "field": "scheduled_date",
+            "new_value": "2026-06-06",
+        },
+    ]
+    proposal_id = await _create_proposal(db, athlete.id, pw1, option_edits=option_edits)
+
+    resp = await client.post(
+        f"/workouts/{pw1.id}/apply-move",
+        json={"proposal_id": str(proposal_id), "choice": "option_a"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+    await db.refresh(pw1)
+    assert pw1.scheduled_date == date(2026, 6, 4)
+    assert pw1.status == WorkoutStatus.moved
+
+    await db.refresh(pw2)
+    assert pw2.scheduled_date == date(2026, 6, 6)
+    assert pw2.status == WorkoutStatus.moved
+
+
+@pytest.mark.asyncio
+async def test_apply_move_invalid_proposal(client, db, athlete, auth_headers):
+    pw = await _seed_workout(db, athlete.id, date(2026, 6, 3))
+    fake_proposal_id = uuid.uuid4()
+
+    resp = await client.post(
+        f"/workouts/{pw.id}/apply-move",
+        json={"proposal_id": str(fake_proposal_id), "choice": "just_move"},
         headers=auth_headers,
     )
     assert resp.status_code == 404
