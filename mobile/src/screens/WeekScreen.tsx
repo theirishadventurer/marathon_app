@@ -1,14 +1,16 @@
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanCurrent, usePlanWeek } from '@/api/hooks/usePlan';
 import type { PlannedWorkoutOut } from '@/api/types';
-import { DayCard } from '@/components/DayCard';
+import { DraggableWeekList } from '@/components/DraggableWeekList';
+import { ProposalSheet } from '@/components/ProposalSheet';
 import { WhySheet } from '@/components/WhySheet';
+import { useDragMove } from '@/hooks/useDragMove';
 import { addDays, fromIso, toIso } from '@/lib/dates';
 import type { RootStackParamList } from '@/navigation/types';
 
@@ -25,8 +27,20 @@ export function WeekScreen() {
   const [cursorIso, setCursorIso] = useState<string>(toIso(new Date()));
   const week = usePlanWeek(cursorIso);
   const plan = usePlanCurrent();
-  const sheetRef = useRef<BottomSheet>(null);
+  const drag = useDragMove();
+
+  const whySheetRef = useRef<BottomSheet>(null);
+  const proposalSheetRef = useRef<BottomSheet>(null);
   const [whyWorkout, setWhyWorkout] = useState<PlannedWorkoutOut | null>(null);
+
+  // Open proposal sheet when a proposal lands or when we are awaiting one.
+  useEffect(() => {
+    if (drag.pending !== null || drag.proposal !== null) {
+      proposalSheetRef.current?.snapToIndex(0);
+    } else {
+      proposalSheetRef.current?.close();
+    }
+  }, [drag.pending, drag.proposal]);
 
   const onRefresh = useCallback(async () => {
     await Promise.all([week.refetch(), plan.refetch()]);
@@ -44,13 +58,18 @@ export function WeekScreen() {
 
   const openWhy = (w: PlannedWorkoutOut) => {
     setWhyWorkout(w);
-    sheetRef.current?.snapToIndex(0);
+    whySheetRef.current?.snapToIndex(0);
   };
   const closeWhy = () => {
-    sheetRef.current?.close();
+    whySheetRef.current?.close();
   };
   const openDetail = (w: PlannedWorkoutOut) => {
     navigation.navigate('WorkoutDetail', { workoutId: w.id });
+  };
+  const requestMove = (w: PlannedWorkoutOut, newDate: string) => {
+    void drag.requestMove(w, newDate).catch(() => {
+      // surface error UX later; mutation already rolls back optimistic state
+    });
   };
 
   const weekLabel = useMemo(
@@ -104,17 +123,25 @@ export function WeekScreen() {
         {week.isError && (
           <Text className="text-accent-danger">Could not load this week.</Text>
         )}
-        {week.data?.days.map((day) => (
-          <DayCard
-            key={day.date}
-            day={day}
+        {week.data !== undefined && (
+          <DraggableWeekList
+            week={week.data}
             onWorkoutPress={openDetail}
             onWorkoutWhy={openWhy}
+            onMoveRequest={requestMove}
+            disabled={drag.pending !== null}
           />
-        ))}
+        )}
       </ScrollView>
 
-      <WhySheet ref={sheetRef} workout={whyWorkout} onClose={closeWhy} />
+      <WhySheet ref={whySheetRef} workout={whyWorkout} onClose={closeWhy} />
+      <ProposalSheet
+        ref={proposalSheetRef}
+        proposal={drag.proposal}
+        submitting={drag.submitting}
+        onApply={drag.apply}
+        onCancel={drag.cancel}
+      />
     </SafeAreaView>
   );
 }
