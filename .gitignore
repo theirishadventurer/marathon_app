@@ -10,3 +10,4 @@ data/
 alembic/versions/*.pyc
 node_modules/
 mobile/.expo/
+docs/session-logs/.last-seen-sha
