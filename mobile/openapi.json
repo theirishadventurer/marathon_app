@@ -1,0 +1,1786 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Marathon Coach",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "operationId": "login_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/garmin/reauth": {
+      "post": {
+        "tags": [
+          "garmin"
+        ],
+        "summary": "Reauth",
+        "operationId": "reauth_garmin_reauth_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GarminReauthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/garmin/status": {
+      "get": {
+        "tags": [
+          "garmin"
+        ],
+        "summary": "Status",
+        "operationId": "status_garmin_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarminStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/sync": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Sync",
+        "operationId": "sync_admin_sync_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncReportOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/chat": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Get Chat",
+        "operationId": "get_chat_chat_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Post Chat",
+        "operationId": "post_chat_chat_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plan/current": {
+      "get": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Plan Current",
+        "operationId": "plan_current_plan_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanCurrentOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/plan/today": {
+      "get": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Plan Today",
+        "operationId": "plan_today_plan_today_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/plan/week": {
+      "get": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Plan Week",
+        "operationId": "plan_week_plan_week_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Workout Detail",
+        "operationId": "workout_detail_workouts__workout_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutDetailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Edit Workout",
+        "operationId": "edit_workout_workouts__workout_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditWorkoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannedWorkoutOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}/skip": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Skip Workout",
+        "operationId": "skip_workout_workouts__workout_id__skip_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}/move": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Move Workout",
+        "operationId": "move_workout_workouts__workout_id__move_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}/apply-move": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Apply Move",
+        "operationId": "apply_move_workouts__workout_id__apply_move_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyMoveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/{workout_id}/reschedule-original": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Reschedule Original",
+        "operationId": "reschedule_original_workouts__workout_id__reschedule_original_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleOriginalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescheduleOriginalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/recent": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Metrics Recent",
+        "operationId": "metrics_recent_metrics_recent_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 14,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DailyMetricOut"
+                  },
+                  "title": "Response Metrics Recent Metrics Recent Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdapterOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "tradeoff": {
+            "type": "string",
+            "title": "Tradeoff"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutEdit"
+            },
+            "type": "array",
+            "title": "Edits"
+          },
+          "rationale": {
+            "type": "string",
+            "title": "Rationale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "tradeoff",
+          "edits",
+          "rationale"
+        ],
+        "title": "AdapterOption"
+      },
+      "ApplyMoveRequest": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Proposal Id"
+          },
+          "choice": {
+            "type": "string",
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "choice"
+        ],
+        "title": "ApplyMoveRequest"
+      },
+      "CompletedWorkoutOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "garmin_activity_id": {
+            "type": "integer",
+            "title": "Garmin Activity Id"
+          },
+          "activity_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Activity Date"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "activity_type": {
+            "type": "string",
+            "title": "Activity Type"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "duration_s": {
+            "type": "integer",
+            "title": "Duration S"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "avg_hr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Hr"
+          },
+          "max_hr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hr"
+          },
+          "avg_pace_s_per_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Pace S Per Km"
+          },
+          "elevation_gain_m": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Gain M"
+          },
+          "calories": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "garmin_activity_id",
+          "activity_date",
+          "started_at",
+          "activity_type",
+          "family",
+          "duration_s",
+          "distance_m",
+          "avg_hr",
+          "max_hr",
+          "avg_pace_s_per_km",
+          "elevation_gain_m",
+          "calories"
+        ],
+        "title": "CompletedWorkoutOut"
+      },
+      "CycleOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "race_name": {
+            "type": "string",
+            "title": "Race Name"
+          },
+          "race_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Race Date"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "sequence",
+          "race_name",
+          "race_date",
+          "start_date",
+          "end_date"
+        ],
+        "title": "CycleOut"
+      },
+      "CycleProgress": {
+        "properties": {
+          "week": {
+            "type": "integer",
+            "title": "Week"
+          },
+          "total_weeks": {
+            "type": "integer",
+            "title": "Total Weeks"
+          },
+          "days_to_race": {
+            "type": "integer",
+            "title": "Days To Race"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week",
+          "total_weeks",
+          "days_to_race"
+        ],
+        "title": "CycleProgress"
+      },
+      "DailyMetricOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "metric_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Metric Date"
+          },
+          "sleep_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Score"
+          },
+          "sleep_duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleep Duration S"
+          },
+          "hrv_overnight_ms": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hrv Overnight Ms"
+          },
+          "resting_hr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resting Hr"
+          },
+          "body_battery_high": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Battery High"
+          },
+          "body_battery_low": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Battery Low"
+          },
+          "training_readiness": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Readiness"
+          },
+          "training_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "metric_date",
+          "sleep_score",
+          "sleep_duration_s",
+          "hrv_overnight_ms",
+          "resting_hr",
+          "body_battery_high",
+          "body_battery_low",
+          "training_readiness",
+          "training_status"
+        ],
+        "title": "DailyMetricOut"
+      },
+      "DayWorkouts": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedWorkoutOut"
+            },
+            "type": "array",
+            "title": "Workouts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "workouts"
+        ],
+        "title": "DayWorkouts"
+      },
+      "EditWorkoutRequest": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkoutType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "distance_mi": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Mi"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 600.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EditWorkoutRequest",
+        "description": "All fields optional \u2014 only those passed get updated."
+      },
+      "GarminReauthRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "GarminReauthRequest"
+      },
+      "GarminStatusOut": {
+        "properties": {
+          "needs_reauth": {
+            "type": "boolean",
+            "title": "Needs Reauth"
+          },
+          "last_sync": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "needs_reauth",
+          "last_sync",
+          "last_error",
+          "last_error_at"
+        ],
+        "title": "GarminStatusOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "MoveRequest": {
+        "properties": {
+          "new_date": {
+            "type": "string",
+            "format": "date",
+            "title": "New Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_date"
+        ],
+        "title": "MoveRequest"
+      },
+      "PlanCurrentOut": {
+        "properties": {
+          "plan_name": {
+            "type": "string",
+            "title": "Plan Name"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "active_cycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CycleOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cycle_progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CycleProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_name",
+          "plan_id",
+          "active_cycle",
+          "cycle_progress"
+        ],
+        "title": "PlanCurrentOut"
+      },
+      "PlannedWorkoutOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "cycle_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cycle Id"
+          },
+          "scheduled_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Scheduled Date"
+          },
+          "original_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Original Date"
+          },
+          "week_number": {
+            "type": "integer",
+            "title": "Week Number"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "distance_mi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Mi"
+          },
+          "target_pace": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Pace"
+          },
+          "target_hr_zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Hr Zone"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description_md": {
+            "type": "string",
+            "title": "Description Md"
+          },
+          "intent_md": {
+            "type": "string",
+            "title": "Intent Md"
+          },
+          "original_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Snapshot"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "cycle_id",
+          "scheduled_date",
+          "original_date",
+          "week_number",
+          "type",
+          "family",
+          "status",
+          "duration_min",
+          "distance_mi",
+          "target_pace",
+          "target_hr_zone",
+          "title",
+          "description_md",
+          "intent_md"
+        ],
+        "title": "PlannedWorkoutOut"
+      },
+      "ProposalOut": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Proposal Id"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/AdapterOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "summary",
+          "options"
+        ],
+        "title": "ProposalOut"
+      },
+      "ReconciliationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "planned_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Id"
+          },
+          "completed_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed Id"
+          },
+          "match_confidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Confidence"
+          },
+          "deviation_notes_md": {
+            "type": "string",
+            "title": "Deviation Notes Md"
+          },
+          "agent_review_md": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Review Md"
+          },
+          "agent_reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Reviewed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "planned_id",
+          "completed_id",
+          "match_confidence",
+          "deviation_notes_md",
+          "agent_review_md",
+          "agent_reviewed_at"
+        ],
+        "title": "ReconciliationOut"
+      },
+      "RescheduleOriginalRequest": {
+        "properties": {
+          "new_date": {
+            "type": "string",
+            "format": "date",
+            "title": "New Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_date"
+        ],
+        "title": "RescheduleOriginalRequest"
+      },
+      "RescheduleOriginalResponse": {
+        "properties": {
+          "new_workout_id": {
+            "type": "string",
+            "title": "New Workout Id"
+          },
+          "proposal": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Proposal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_workout_id",
+          "proposal"
+        ],
+        "title": "RescheduleOriginalResponse"
+      },
+      "SyncReportOut": {
+        "properties": {
+          "synced_activities": {
+            "type": "integer",
+            "title": "Synced Activities"
+          },
+          "synced_metrics": {
+            "type": "integer",
+            "title": "Synced Metrics"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "synced_activities",
+          "synced_metrics",
+          "errors"
+        ],
+        "title": "SyncReportOut"
+      },
+      "TodayOut": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedWorkoutOut"
+            },
+            "type": "array",
+            "title": "Workouts"
+          },
+          "coach_brief": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coach Brief"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "workouts"
+        ],
+        "title": "TodayOut"
+      },
+      "TokenResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "TokenResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WeekOut": {
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayWorkouts"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_start",
+          "days"
+        ],
+        "title": "WeekOut"
+      },
+      "WorkoutDetailOut": {
+        "properties": {
+          "planned": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannedWorkoutOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletedWorkoutOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reconciliation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReconciliationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "planned",
+          "completed",
+          "reconciliation"
+        ],
+        "title": "WorkoutDetailOut"
+      },
+      "WorkoutEdit": {
+        "properties": {
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workout Id"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "new_value": {
+            "type": "string",
+            "title": "New Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workout_id",
+          "field",
+          "new_value"
+        ],
+        "title": "WorkoutEdit"
+      },
+      "WorkoutType": {
+        "type": "string",
+        "enum": [
+          "easy",
+          "long",
+          "tempo",
+          "intervals",
+          "hills",
+          "mp_long",
+          "recovery",
+          "strides",
+          "strength_a",
+          "strength_b",
+          "cross",
+          "rest",
+          "race"
+        ],
+        "title": "WorkoutType"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
