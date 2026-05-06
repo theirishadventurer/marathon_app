@@ -4,11 +4,11 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlannedWorkoutOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: uuid.UUID
     cycle_id: uuid.UUID
@@ -25,6 +25,7 @@ class PlannedWorkoutOut(BaseModel):
     title: str
     description_md: str
     intent_md: str
+    original_snapshot: dict | None = Field(default=None, alias="original_snapshot_json")
 
 
 class CycleOut(BaseModel):

@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.workout import PlannedWorkout
+from app.schemas.plan import PlannedWorkoutOut
 
 
 @pytest.mark.asyncio
@@ -12,3 +13,11 @@ async def test_planned_workout_has_original_snapshot_column(seeded_db):
     workout = result.scalar_one()
     assert hasattr(workout, "original_snapshot_json")
     assert workout.original_snapshot_json is None
+
+
+def test_planned_workout_out_has_original_snapshot_field():
+    fields = PlannedWorkoutOut.model_fields
+    assert "original_snapshot" in fields
+    # nullable
+    annot = fields["original_snapshot"].annotation
+    assert "None" in str(annot) or annot is type(None) or "Optional" in str(annot)
