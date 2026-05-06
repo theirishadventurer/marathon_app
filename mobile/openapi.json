@@ -285,6 +285,80 @@
         }
       }
     },
+    "/plan/full": {
+      "get": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Plan Full",
+        "operationId": "plan_full_plan_full_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanFullOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/plan/stats": {
+      "get": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Plan Stats",
+        "operationId": "plan_stats_plan_stats_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "cycle",
+              "title": "Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanStatsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workouts/{workout_id}": {
       "get": {
         "tags": [
@@ -855,6 +929,84 @@
         ],
         "title": "CompletedWorkoutOut"
       },
+      "CycleFull": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "race_name": {
+            "type": "string",
+            "title": "Race Name"
+          },
+          "race_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Race Date"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "peak_week_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Week Target"
+          },
+          "race_planned_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race Planned Id"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/WeekRollup"
+            },
+            "type": "array",
+            "title": "Weeks",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "sequence",
+          "race_name",
+          "race_date",
+          "start_date",
+          "end_date"
+        ],
+        "title": "CycleFull"
+      },
       "CycleOut": {
         "properties": {
           "id": {
@@ -1239,6 +1391,66 @@
         ],
         "title": "MoveRequest"
       },
+      "NextMilestone": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "peak",
+              "race",
+              "decision"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "date"
+        ],
+        "title": "NextMilestone"
+      },
+      "PeakWeekSummary": {
+        "properties": {
+          "week_number": {
+            "type": "integer",
+            "title": "Week Number"
+          },
+          "planned_mi": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Mi"
+          },
+          "long_run_mi": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Run Mi"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_number",
+          "planned_mi"
+        ],
+        "title": "PeakWeekSummary"
+      },
       "PlanCurrentOut": {
         "properties": {
           "plan_name": {
@@ -1279,6 +1491,137 @@
           "cycle_progress"
         ],
         "title": "PlanCurrentOut"
+      },
+      "PlanFullOut": {
+        "properties": {
+          "plan_name": {
+            "type": "string",
+            "title": "Plan Name"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/CycleFull"
+            },
+            "type": "array",
+            "title": "Cycles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_name",
+          "plan_id",
+          "start_date",
+          "end_date",
+          "cycles"
+        ],
+        "title": "PlanFullOut"
+      },
+      "PlanStatsOut": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "cycle",
+              "plan"
+            ],
+            "title": "Scope"
+          },
+          "cycle_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle Id"
+          },
+          "on_plan_pct": {
+            "type": "number",
+            "title": "On Plan Pct"
+          },
+          "done_count": {
+            "type": "integer",
+            "title": "Done Count"
+          },
+          "skipped_count": {
+            "type": "integer",
+            "title": "Skipped Count"
+          },
+          "planned_to_date_count": {
+            "type": "integer",
+            "title": "Planned To Date Count"
+          },
+          "planned_mi": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Mi"
+          },
+          "actual_mi": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Actual Mi"
+          },
+          "streak_days": {
+            "type": "integer",
+            "title": "Streak Days"
+          },
+          "next_milestone": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextMilestone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "peak_week": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeakWeekSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Computed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "on_plan_pct",
+          "done_count",
+          "skipped_count",
+          "planned_to_date_count",
+          "planned_mi",
+          "actual_mi",
+          "streak_days",
+          "computed_at"
+        ],
+        "title": "PlanStatsOut"
       },
       "PlannedWorkoutOut": {
         "properties": {
@@ -1690,6 +2033,90 @@
           "days"
         ],
         "title": "WeekOut"
+      },
+      "WeekRollup": {
+        "properties": {
+          "week_number": {
+            "type": "integer",
+            "title": "Week Number"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "planned_count": {
+            "type": "integer",
+            "title": "Planned Count"
+          },
+          "done_count": {
+            "type": "integer",
+            "title": "Done Count"
+          },
+          "skipped_count": {
+            "type": "integer",
+            "title": "Skipped Count"
+          },
+          "moved_count": {
+            "type": "integer",
+            "title": "Moved Count"
+          },
+          "planned_mi": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Planned Mi"
+          },
+          "actual_mi": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Actual Mi"
+          },
+          "is_cutback": {
+            "type": "boolean",
+            "title": "Is Cutback"
+          },
+          "is_peak": {
+            "type": "boolean",
+            "title": "Is Peak"
+          },
+          "has_race": {
+            "type": "boolean",
+            "title": "Has Race"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "partial",
+              "current",
+              "upcoming",
+              "skipped"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_number",
+          "week_start",
+          "week_end",
+          "planned_count",
+          "done_count",
+          "skipped_count",
+          "moved_count",
+          "planned_mi",
+          "actual_mi",
+          "is_cutback",
+          "is_peak",
+          "has_race",
+          "status"
+        ],
+        "title": "WeekRollup"
       },
       "WorkoutDetailOut": {
         "properties": {
