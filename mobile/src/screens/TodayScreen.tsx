@@ -11,6 +11,7 @@ import { DisplacedSheet } from '@/components/DisplacedSheet';
 import { EditQuestSheet } from '@/components/EditQuestSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
+import { SectionHeader } from '@/components/SectionHeader';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { WhySheet } from '@/components/WhySheet';
 import { useEditFlow } from '@/hooks/useEditFlow';
@@ -74,11 +75,9 @@ export function TodayScreen() {
           </Text>
         )}
 
+        <SectionHeader label="Coach brief" />
         <RetroBorder style={{ marginBottom: 24 }}>
           <View style={{ padding: 14 }}>
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 6 }}>
-              COACH BRIEF
-            </Text>
             <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, fontStyle: 'italic' }}>
               Coach brief — wired in session 3
             </Text>
@@ -117,12 +116,7 @@ export function TodayScreen() {
           />
         ))}
 
-        <Text style={{
-          fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
-          marginTop: 32, marginBottom: 12,
-        }}>
-          RECENT QUESTS
-        </Text>
+        <SectionHeader label="Recent runs" />
         <RetroBorder>
           <View style={{ padding: 14 }}>
             <Text style={{ fontFamily: 'VT323', fontSize: 14, color: colors.inkDim }}>

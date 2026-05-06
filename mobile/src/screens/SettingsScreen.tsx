@@ -8,6 +8,7 @@ import { usePlanCurrent } from '@/api/hooks/usePlan';
 import { useAuth } from '@/auth/AuthContext';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
+import { SectionHeader } from '@/components/SectionHeader';
 import { colors } from '@/theme/tokens';
 
 function timeAgo(iso: string | null): string {
@@ -22,14 +23,6 @@ function timeAgo(iso: string | null): string {
   const diffDay = Math.round(diffHr / 24);
   return `${diffDay}d ago`;
 }
-
-const sectionHeader = {
-  fontFamily: 'PressStart2P',
-  fontSize: 8,
-  color: colors.inkDim,
-  letterSpacing: 1,
-  marginBottom: 8,
-} as const;
 
 function GarminReauth({ onDone }: { onDone: () => void }) {
   const reauth = useGarminReauth();
@@ -144,7 +137,7 @@ export function SettingsScreen() {
           SETTINGS
         </Text>
 
-        <Text style={sectionHeader}>PLAN</Text>
+        <SectionHeader label="Plan" />
         <RetroBorder style={{ marginBottom: 24 }}>
           <View style={{ padding: 14 }}>
             {plan.data === undefined ? (
@@ -169,7 +162,7 @@ export function SettingsScreen() {
           </View>
         </RetroBorder>
 
-        <Text style={sectionHeader}>GARMIN</Text>
+        <SectionHeader label="Garmin" />
         <RetroBorder>
           <View style={{ padding: 14 }}>
             {status.isLoading ? (

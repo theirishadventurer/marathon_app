@@ -10,6 +10,7 @@ import { EditQuestSheet } from '@/components/EditQuestSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
+import { SectionHeader } from '@/components/SectionHeader';
 import { useEditFlow } from '@/hooks/useEditFlow';
 import { fromIso, startOfWeek, toIso } from '@/lib/dates';
 import {
@@ -60,12 +61,8 @@ function ComparisonPanel({ planned, completed }: { planned: PlannedWorkoutOut; c
     return mi !== null ? formatDistance(mi) : '—';
   })();
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{
-        fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4,
-      }}>
-        PLANNED VS ACTUAL
-      </Text>
+    <View>
+      <SectionHeader label="Planned vs actual" />
       <View style={{ flexDirection: 'row', paddingBottom: 6, paddingTop: 8 }}>
         <Text style={{ color: colors.inkMute, flex: 1.2, fontFamily: 'PressStart2P', fontSize: 8 }}>METRIC</Text>
         <Text style={{ color: colors.inkMute, flex: 1, fontFamily: 'PressStart2P', fontSize: 8 }}>PLANNED</Text>
@@ -98,12 +95,8 @@ function ComparisonPanel({ planned, completed }: { planned: PlannedWorkoutOut; c
 
 function ReconciliationPanel({ recon }: { recon: ReconciliationOut }) {
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{
-        fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4,
-      }}>
-        RECONCILIATION
-      </Text>
+    <View>
+      <SectionHeader label="Reconciliation" />
       <RetroBorder>
         <View style={{ padding: 14 }}>
           <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
@@ -231,22 +224,14 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 
             {detail.data.planned.description_md.trim().length > 0 && (
               <View>
-                <Text style={{
-                  fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4,
-                }}>
-                  PRESCRIPTION
-                </Text>
+                <SectionHeader label="Prescription" />
                 <Markdown style={markdownStyle}>{detail.data.planned.description_md}</Markdown>
               </View>
             )}
 
             {detail.data.planned.intent_md.trim().length > 0 && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={{
-                  fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4,
-                }}>
-                  INTENT
-                </Text>
+              <View>
+                <SectionHeader label="Intent" />
                 <Markdown style={markdownStyle}>{detail.data.planned.intent_md}</Markdown>
               </View>
             )}
