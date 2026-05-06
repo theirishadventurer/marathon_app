@@ -1,13 +1,13 @@
 # Project Memory
 
-## Current Status (2026-05-06)
+## Current Status (2026-05-06, Session 2.6)
 
-**Branch:** `session-2/backend-move-endpoints` (37 commits ahead of master since Session 2.5 design landed at `ac61df9`)
+**Branch:** `session-2/backend-move-endpoints` (~60 commits ahead of master across Sessions 2 / 2.5 / 2.6)
 
 **State:**
-- Backend: 47/47 tests pass, ruff clean. Endpoints: auth, plan/today, plan/week, plan/current, workouts CRUD + move/apply-move/reschedule-original/skip, garmin reauth/status/sync, metrics/recent.
-- Mobile: full NES retro restyle, edit feature wired end-to-end, typecheck clean. Demo running on http://localhost:19006.
-- DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`.
+- Backend: 61/61 tests pass, ruff clean. Endpoints: auth, plan/today, plan/week, plan/current, **plan/full**, **plan/stats**, workouts CRUD + move/apply-move/reschedule-original/skip, garmin reauth/status/sync, metrics/recent.
+- Mobile: smoother-NES restyle (rounded soft borders, phosphor green + cyan accent, no offset shadows), edit feature + Program tab + Weekly Mileage Tracker all wired end-to-end. Typecheck clean.
+- DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`. Seeder now sets `Cycle.peak_week_target` per cycle from the longest non-race long run.
 - Dev: Docker Desktop on Windows/WSL2; volume gets wiped on `docker compose down` so re-migrate + re-seed after each cycle.
 
 **Open:**
@@ -31,6 +31,21 @@
 - **CORS for web demo:** `expo start --web` runs on a different origin than the FastAPI backend. Permissive `CORSMiddleware(allow_origins=["*"])` is fine for local dev.
 - **JSX namespace:** with React 19 + TS 5.9, don't annotate `: JSX.Element` on component returns — it errors. Let TS infer.
 - **NativeWind v4 + Tailwind aliases:** keep both `colors.bgCard` (legacy alias) and `colors.bgPanel` (new) when migrating palette tokens — avoids breaking existing className consumers mid-refactor.
+
+### Mobile / Navigation
+- **Composite navigation prop typing.** When a tab screen needs to push onto the root stack (e.g., Program → WorkoutDetail), use `CompositeNavigationProp<BottomTabNavigationProp<TabParamList, '...'>, NativeStackNavigationProp<RootStackParamList>>` — without this you can't call both `navigate('Tabs', { screen: 'Week', params })` and `navigate('WorkoutDetail', { workoutId })` from the same screen.
+- **`noUncheckedIndexedAccess` everywhere.** All `array[i]` reads return `T | undefined`. Use `?? fallback` patterns. The mobile codebase has this enabled in tsconfig and it consistently catches off-by-one bugs at typecheck.
+- **`useRoute<RouteProp<TabParamList, 'Week'>>()`** is how you read tab-level route params. Used for `initialDate` on the Week tab so Program-tab tile-taps navigate cleanly.
+
+### Backend / Caching
+- **Per-athlete in-process cache + explicit busts** is the right shape for read-heavy aggregators on a single-worker FastAPI deployment. 60s TTL is generous; bust on every mutation handler that touches `planned_workouts`. Don't over-engineer with Redis until ≥10 athletes.
+- **Pydantic v2 `Literal` types** serialize as plain strings via `model_dump`, round-trip through FastAPI / OpenAPI / openapi-typescript without ceremony. Use them for status/scope/kind enums.
+- **`select_from(PlannedWorkout)` is required** when a `select(...).join(Reconciliation).join(CompletedWorkout)` selects only fields from `CompletedWorkout` — without the explicit anchor, SQLAlchemy infers FROM as `completed_workouts` and the chained joins leave `planned_workouts` unjoined.
+
+### Design / UX
+- **`SectionHeader` cyan mixed-case mono w/ `▸` caret** is the legibility win over `PressStart2P fontSize 8` all-caps headers. Pixel font for headers below 10pt is unreadable on smaller phones.
+- **Soft borders (1px slate) + 4–6px corners + no offset shadow** reads as polished retro without looking dated. The lifted bgPanel tone provides elevation; hard offset shadows stack visually and flatten hierarchy.
+- **Filled-rounded badge variant** for family/platform tags (NES/SNES style); bracket-style `[ PLANNED ]` reserved for status text where the matrix-terminal vibe still works.
 
 ### Process / Workflow
 - **TDD discipline pays off** for backend changes — pytest red→green per task surfaced bugs early (e.g., the alias→validation_alias bug, the enum-coercion artifact).
