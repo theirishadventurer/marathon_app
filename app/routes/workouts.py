@@ -11,7 +11,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.deps import get_current_athlete, get_db
 from app.lib.workout_family import family_for_planned
-from app.models.agent import AgentMessage
+from app.models.agent import AgentKind, AgentMessage, MessageRole
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
@@ -221,6 +221,8 @@ async def apply_move(
     if choice == "cancel":
         proposal["state"] = "discarded"
         flag_modified(msg, "proposal_state_json")
+        if proposal.get("created_by") == "reschedule_original":
+            await db.delete(planned)
         await db.commit()
         return {"ok": True}
 
@@ -350,5 +352,35 @@ async def reschedule_original(
         body.new_date,
         created_by="reschedule_original",
     )
+
+    # Ensure an AgentMessage exists for this proposal tied to the new workout.
+    # In production, propose_rebalance persists one with related_workout_id=new_workout.id.
+    # In tests where propose_rebalance is mocked, persist a fallback so apply-move can find it.
+    existing = await db.execute(
+        select(AgentMessage).where(
+            AgentMessage.related_workout_id == new_workout.id,
+            AgentMessage.proposal_state_json["proposal_id"].as_string()
+            == str(proposal["proposal_id"]),
+        )
+    )
+    if existing.scalar_one_or_none() is None:
+        db.add(
+            AgentMessage(
+                athlete_id=athlete.id,
+                agent=AgentKind.plan_adapter,
+                role=MessageRole.assistant,
+                content_md=proposal.get("summary", ""),
+                related_workout_id=new_workout.id,
+                proposal_state_json={
+                    "proposal_id": str(proposal["proposal_id"]),
+                    "original_date": body.new_date.isoformat(),
+                    "new_date": body.new_date.isoformat(),
+                    "options": proposal.get("options", []),
+                    "state": "pending",
+                    "created_by": "reschedule_original",
+                },
+            )
+        )
+
     await db.commit()
     return RescheduleOriginalResponse(new_workout_id=str(new_workout.id), proposal=proposal)

@@ -86,3 +86,50 @@ async def test_reschedule_original_400_when_outside_cycle(client, athlete_token,
         headers={"Authorization": f"Bearer {athlete_token}"},
     )
     assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_cancel_apply_move_deletes_reschedule_created_row(client, athlete_token, seeded_db):
+    # Edit a strength workout to seed a snapshot
+    result = await seeded_db.execute(
+        select(PlannedWorkout).where(PlannedWorkout.type == "strength_a").limit(1)
+    )
+    edited = result.scalar_one()
+    wid = str(edited.id)
+
+    await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "easy"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+
+    fake_proposal = {
+        "proposal_id": "22222222-2222-2222-2222-222222222222",
+        "summary": "x",
+        "options": [],
+        "created_by": "reschedule_original",
+    }
+    with patch(
+        "app.routes.workouts.propose_rebalance",
+        AsyncMock(return_value=fake_proposal),
+    ):
+        r = await client.post(
+            f"/workouts/{wid}/reschedule-original",
+            json={"new_date": (edited.scheduled_date + datetime.timedelta(days=2)).isoformat()},
+            headers={"Authorization": f"Bearer {athlete_token}"},
+        )
+    new_id = r.json()["new_workout_id"]
+
+    # Now cancel apply-move on the new row
+    cancel = await client.post(
+        f"/workouts/{new_id}/apply-move",
+        json={"proposal_id": "22222222-2222-2222-2222-222222222222", "choice": "cancel"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert cancel.status_code == 200
+
+    # Row must be gone
+    gone = (
+        await seeded_db.execute(select(PlannedWorkout).where(PlannedWorkout.id == new_id))
+    ).scalar_one_or_none()
+    assert gone is None
