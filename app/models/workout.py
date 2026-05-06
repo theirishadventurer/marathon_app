@@ -85,6 +85,9 @@ class PlannedWorkout(UUIDMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description_md: Mapped[str] = mapped_column(Text, nullable=False)
     intent_md: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    original_snapshot_json: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, nullable=True, default=None
+    )
 
     # Relationships
     cycle: Mapped["Cycle"] = relationship(back_populates="planned_workouts")
