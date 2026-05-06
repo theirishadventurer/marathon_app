@@ -52,3 +52,37 @@ async def test_reschedule_original_creates_row_and_returns_proposal(
     ).scalar_one()
     assert new_row.type == WorkoutType.strength_a
     assert new_row.status == WorkoutStatus.planned
+
+
+@pytest.mark.asyncio
+async def test_reschedule_original_400_when_no_snapshot(client, athlete_token, seeded_db):
+    result = await seeded_db.execute(select(PlannedWorkout).limit(1))
+    workout = result.scalar_one()
+    response = await client.post(
+        f"/workouts/{workout.id}/reschedule-original",
+        json={"new_date": workout.scheduled_date.isoformat()},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reschedule_original_400_when_outside_cycle(client, athlete_token, seeded_db):
+    result = await seeded_db.execute(
+        select(PlannedWorkout).where(PlannedWorkout.type == "strength_a").limit(1)
+    )
+    workout = result.scalar_one()
+    wid = str(workout.id)
+
+    await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "easy"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+
+    response = await client.post(
+        f"/workouts/{wid}/reschedule-original",
+        json={"new_date": "2099-01-01"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 400
