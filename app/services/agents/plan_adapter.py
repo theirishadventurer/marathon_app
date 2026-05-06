@@ -181,6 +181,8 @@ async def propose_rebalance(
     athlete_id: uuid.UUID,
     workout_id: uuid.UUID,
     new_date: date,
+    *,
+    created_by: str | None = None,
 ) -> dict[str, Any]:
     """Propose rebalance options when a workout is moved."""
     context = await _build_adapter_context(db, athlete_id, workout_id, new_date)
@@ -216,6 +218,16 @@ async def propose_rebalance(
     options = result["options"]
     proposal_id = str(uuid.uuid4())
 
+    proposal_state: dict[str, Any] = {
+        "proposal_id": proposal_id,
+        "original_date": moved["scheduled_date"],
+        "new_date": context["new_date"],
+        "options": options,
+        "state": "pending",
+    }
+    if created_by is not None:
+        proposal_state["created_by"] = created_by
+
     # Persist an AgentMessage
     agent_msg = AgentMessage(
         athlete_id=athlete_id,
@@ -224,13 +236,7 @@ async def propose_rebalance(
         content_md=summary,
         context_snapshot_json=context,
         related_workout_id=workout_id,
-        proposal_state_json={
-            "proposal_id": proposal_id,
-            "original_date": moved["scheduled_date"],
-            "new_date": context["new_date"],
-            "options": options,
-            "state": "pending",
-        },
+        proposal_state_json=proposal_state,
     )
     db.add(agent_msg)
     await db.commit()

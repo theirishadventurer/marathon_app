@@ -201,3 +201,45 @@ async def test_propose_rebalance_calls_anthropic_correctly(db, athlete):
     assert len(call_kwargs["tools"]) == 1
     assert call_kwargs["tools"][0]["name"] == "propose_rebalance"
     assert "tempo" in call_kwargs["messages"][0]["content"].lower()
+
+
+@pytest.mark.asyncio
+async def test_propose_rebalance_persists_created_by_tag(db, athlete):
+    """When propose_rebalance is called with created_by='reschedule_original',
+    the persisted AgentMessage.proposal_state_json carries that tag."""
+    workouts = await _seed_week(db, athlete.id)
+    tempo = workouts[2]
+    new_date = date(2026, 6, 4)
+
+    mock_block = MagicMock()
+    mock_block.type = "tool_use"
+    mock_block.input = MOCK_TOOL_RESULT
+
+    mock_response = MagicMock()
+    mock_response.content = [mock_block]
+    mock_response.usage.input_tokens = 100
+    mock_response.usage.output_tokens = 200
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    with patch(
+        "app.services.agents.plan_adapter.get_anthropic_client",
+        return_value=mock_client,
+    ):
+        from app.services.agents.plan_adapter import propose_rebalance
+
+        await propose_rebalance(
+            db,
+            athlete.id,
+            tempo.id,
+            new_date,
+            created_by="reschedule_original",
+        )
+
+    msg_result = await db.execute(
+        select(AgentMessage).where(AgentMessage.related_workout_id == tempo.id)
+    )
+    msg = msg_result.scalar_one()
+    assert msg.proposal_state_json is not None
+    assert msg.proposal_state_json.get("created_by") == "reschedule_original"
