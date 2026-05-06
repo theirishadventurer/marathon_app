@@ -1,6 +1,8 @@
 import { Pressable, Text, View } from 'react-native';
 
 import type { PlannedWorkoutOut } from '@/api/types';
+import { RetroBorder } from '@/components/retro/RetroBorder';
+import { RetroPill } from '@/components/retro/RetroPill';
 import { formatDistance } from '@/lib/format';
 import { colors, familyColor, type WorkoutFamily } from '@/theme/tokens';
 
@@ -9,13 +11,6 @@ const FAMILIES: ReadonlySet<WorkoutFamily> = new Set(['running', 'strength', 'ot
 function asFamily(raw: string): WorkoutFamily {
   return FAMILIES.has(raw as WorkoutFamily) ? (raw as WorkoutFamily) : 'other';
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  planned: 'Planned',
-  moved: 'Moved',
-  skipped: 'Skipped',
-  done: 'Done',
-};
 
 const STATUS_COLOR: Record<string, string> = {
   planned: colors.inkDim,
@@ -28,67 +23,101 @@ interface Props {
   workout: PlannedWorkoutOut;
   onPress?: () => void;
   onWhy?: () => void;
+  onEdit?: () => void;
   compact?: boolean;
 }
 
-export function WorkoutCard({ workout, onPress, onWhy, compact = false }: Props) {
+export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }: Props) {
   const family = asFamily(workout.family);
   const tint = familyColor[family];
-  const distance = workout.distance_mi !== null ? formatDistance(parseFloat(workout.distance_mi)) : null;
-  const statusLabel = STATUS_LABEL[workout.status] ?? workout.status;
+  const distance = workout.distance_mi !== null
+    ? formatDistance(parseFloat(workout.distance_mi))
+    : null;
   const statusColor = STATUS_COLOR[workout.status] ?? colors.inkDim;
+  const wasOriginal = workout.original_snapshot;
 
   return (
-    <Pressable
-      onPress={onPress}
-      className="bg-bg-card rounded-xl px-4 py-3 mb-3 border border-line"
-    >
-      <View className="flex-row items-center mb-2">
-        <View
-          style={{ backgroundColor: tint, width: 8, height: 8, borderRadius: 4 }}
-          className="mr-2"
-        />
-        <Text className="text-ink-dim text-xs uppercase tracking-wide">
-          {workout.type}
-        </Text>
-        <View className="flex-1" />
-        <Text style={{ color: statusColor }} className="text-xs uppercase">
-          {statusLabel}
-        </Text>
-      </View>
+    <Pressable onPress={onPress} style={{ marginBottom: 14 }}>
+      <RetroBorder>
+        <View style={{ padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <View style={{
+              backgroundColor: tint, width: 10, height: 10, marginRight: 8,
+            }} />
+            <Text style={{
+              fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+            }}>
+              {workout.type.toUpperCase()}
+            </Text>
+            <View style={{ flex: 1 }} />
+            <RetroPill label={workout.status} color={statusColor} />
+          </View>
 
-      <Text className="text-ink text-lg font-semibold mb-1" numberOfLines={2}>
-        {workout.title}
-      </Text>
+          <Text style={{
+            fontFamily: 'VT323', fontSize: 22, color: colors.ink, lineHeight: 24,
+          }} numberOfLines={2}>
+            {workout.title}
+          </Text>
 
-      {!compact && (
-        <View className="flex-row items-center flex-wrap mt-1">
-          {distance !== null && (
-            <Text className="text-ink-dim text-sm mr-3">{distance}</Text>
+          {wasOriginal !== null && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+              <Text style={{
+                fontFamily: 'VT323', fontSize: 14, color: colors.inkDim,
+              }}>
+                ↻ was: {wasOriginal.title}
+              </Text>
+            </View>
           )}
-          {workout.duration_min !== null && (
-            <Text className="text-ink-dim text-sm mr-3">{workout.duration_min}min</Text>
+
+          {!compact && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+              {distance !== null && (
+                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                  {distance}
+                </Text>
+              )}
+              {workout.duration_min !== null && (
+                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                  {workout.duration_min}min
+                </Text>
+              )}
+              {workout.target_pace !== null && (
+                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                  {workout.target_pace}
+                </Text>
+              )}
+              {workout.target_hr_zone !== null && (
+                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim }}>
+                  {workout.target_hr_zone}
+                </Text>
+              )}
+            </View>
           )}
-          {workout.target_pace !== null && (
-            <Text className="text-ink-dim text-sm mr-3">{workout.target_pace}</Text>
-          )}
-          {workout.target_hr_zone !== null && (
-            <Text className="text-ink-dim text-sm">{workout.target_hr_zone}</Text>
+
+          {(onWhy !== undefined || onEdit !== undefined) && (
+            <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+              {onWhy !== undefined && (
+                <Pressable
+                  onPress={onWhy}
+                  hitSlop={8}
+                  style={{ borderColor: colors.line, borderWidth: 2, paddingHorizontal: 8, paddingVertical: 4 }}
+                >
+                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.ink }}>WHY?</Text>
+                </Pressable>
+              )}
+              {onEdit !== undefined && (
+                <Pressable
+                  onPress={onEdit}
+                  hitSlop={8}
+                  style={{ borderColor: colors.line, borderWidth: 2, paddingHorizontal: 8, paddingVertical: 4 }}
+                >
+                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.ink }}>EDIT</Text>
+                </Pressable>
+              )}
+            </View>
           )}
         </View>
-      )}
-
-      {onWhy !== undefined && (
-        <View className="flex-row mt-3">
-          <Pressable
-            onPress={onWhy}
-            hitSlop={8}
-            className="border border-line rounded-md px-3 py-1"
-          >
-            <Text className="text-ink-dim text-xs">Why?</Text>
-          </Pressable>
-        </View>
-      )}
+      </RetroBorder>
     </Pressable>
   );
 }
