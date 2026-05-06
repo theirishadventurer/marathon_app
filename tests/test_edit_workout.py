@@ -1,7 +1,10 @@
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
-from app.models.workout import PlannedWorkout
+from app.models.workout import PlannedWorkout, WorkoutType
+from app.schemas.edit import EditWorkoutRequest, RescheduleOriginalRequest
 from app.schemas.plan import PlannedWorkoutOut
 
 
@@ -18,15 +21,8 @@ async def test_planned_workout_has_original_snapshot_column(seeded_db):
 def test_planned_workout_out_has_original_snapshot_field():
     fields = PlannedWorkoutOut.model_fields
     assert "original_snapshot" in fields
-    # nullable
     annot = fields["original_snapshot"].annotation
     assert "None" in str(annot) or annot is type(None) or "Optional" in str(annot)
-
-
-from datetime import date
-
-from app.schemas.edit import EditWorkoutRequest, RescheduleOriginalRequest
-from app.models.workout import WorkoutType
 
 
 def test_edit_request_accepts_partial_fields():
@@ -38,8 +34,7 @@ def test_edit_request_accepts_partial_fields():
 
 
 def test_edit_request_rejects_negative_distance():
-    import pytest as _p
-    with _p.raises(ValueError):
+    with pytest.raises(ValueError):
         EditWorkoutRequest(distance_mi=-1)
 
 
