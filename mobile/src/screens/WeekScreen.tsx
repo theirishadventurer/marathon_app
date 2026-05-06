@@ -13,6 +13,7 @@ import { WhySheet } from '@/components/WhySheet';
 import { useDragMove } from '@/hooks/useDragMove';
 import { addDays, fromIso, toIso } from '@/lib/dates';
 import type { RootStackParamList } from '@/navigation/types';
+import { colors } from '@/theme/tokens';
 
 function formatWeekLabel(weekStartIso: string): string {
   const start = fromIso(weekStartIso);
@@ -78,30 +79,43 @@ export function WeekScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="px-5 pt-4 pb-3 border-b border-line">
-        <View className="flex-row items-center justify-between">
-          <Pressable onPress={goPrev} hitSlop={10} className="px-2 py-1">
-            <Text className="text-ink text-xl">‹</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+      <View style={{
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 2,
+        borderBottomColor: colors.line,
+        backgroundColor: colors.bgPanel,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable onPress={goPrev} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink }}>‹</Text>
           </Pressable>
-          <View className="items-center">
-            <Text className="text-ink text-base font-semibold">{weekLabel}</Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink }}>{weekLabel}</Text>
             {plan.data?.cycle_progress !== null && plan.data?.cycle_progress !== undefined && (
-              <Text className="text-ink-dim text-xs">
-                Week {plan.data.cycle_progress.week} / {plan.data.cycle_progress.total_weeks}
+              <Text style={{
+                fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginTop: 4,
+              }}>
+                WK {plan.data.cycle_progress.week} / {plan.data.cycle_progress.total_weeks}
               </Text>
             )}
           </View>
-          <Pressable onPress={goNext} hitSlop={10} className="px-2 py-1">
-            <Text className="text-ink text-xl">›</Text>
+          <Pressable onPress={goNext} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink }}>›</Text>
           </Pressable>
         </View>
         <Pressable
           onPress={jumpToday}
           hitSlop={6}
-          className="self-center mt-2"
+          style={{ alignSelf: 'center', marginTop: 8 }}
         >
-          <Text className="text-accent-run text-xs uppercase">Jump to today</Text>
+          <Text style={{
+            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentRun, letterSpacing: 1,
+          }}>
+            ▸ JUMP TO TODAY
+          </Text>
         </Pressable>
       </View>
 
@@ -111,17 +125,21 @@ export function WeekScreen() {
           <RefreshControl
             refreshing={week.isFetching}
             onRefresh={() => { void onRefresh(); }}
-            tintColor="#a1a1aa"
+            tintColor={colors.inkDim}
           />
         }
       >
         {week.isLoading && (
-          <View className="items-center py-10">
-            <ActivityIndicator color="#34d399" />
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <ActivityIndicator color={colors.accentRun} />
           </View>
         )}
         {week.isError && (
-          <Text className="text-accent-danger">Could not load this week.</Text>
+          <Text style={{
+            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
+          }}>
+            COULD NOT LOAD WEEK
+          </Text>
         )}
         {week.data !== undefined && (
           <DraggableWeekList
