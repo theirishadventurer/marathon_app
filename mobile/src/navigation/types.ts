@@ -2,7 +2,8 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type TabParamList = {
   Today: undefined;
-  Week: undefined;
+  Week: { initialDate?: string } | undefined;
+  Program: undefined;
   Chat: undefined;
   Settings: undefined;
 };

@@ -1,5 +1,5 @@
 import BottomSheet from '@gorhom/bottom-sheet';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
@@ -15,7 +15,7 @@ import { WhySheet } from '@/components/WhySheet';
 import { useDragMove } from '@/hooks/useDragMove';
 import { useEditFlow } from '@/hooks/useEditFlow';
 import { addDays, fromIso, startOfWeek, toIso } from '@/lib/dates';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackParamList, TabParamList } from '@/navigation/types';
 import { colors } from '@/theme/tokens';
 
 function formatWeekLabel(weekStartIso: string): string {
@@ -28,7 +28,9 @@ function formatWeekLabel(weekStartIso: string): string {
 
 export function WeekScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [cursorIso, setCursorIso] = useState<string>(toIso(new Date()));
+  const route = useRoute<RouteProp<TabParamList, 'Week'>>();
+  const initialDate = route.params?.initialDate;
+  const [cursorIso, setCursorIso] = useState<string>(initialDate ?? toIso(new Date()));
   const week = usePlanWeek(cursorIso);
   const plan = usePlanCurrent();
   const drag = useDragMove();
