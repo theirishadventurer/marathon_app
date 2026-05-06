@@ -21,3 +21,28 @@ def test_planned_workout_out_has_original_snapshot_field():
     # nullable
     annot = fields["original_snapshot"].annotation
     assert "None" in str(annot) or annot is type(None) or "Optional" in str(annot)
+
+
+from datetime import date
+
+from app.schemas.edit import EditWorkoutRequest, RescheduleOriginalRequest
+from app.models.workout import WorkoutType
+
+
+def test_edit_request_accepts_partial_fields():
+    req = EditWorkoutRequest(type=WorkoutType.easy)
+    assert req.type == WorkoutType.easy
+    assert req.distance_mi is None
+    assert req.duration_min is None
+    assert req.title is None
+
+
+def test_edit_request_rejects_negative_distance():
+    import pytest as _p
+    with _p.raises(ValueError):
+        EditWorkoutRequest(distance_mi=-1)
+
+
+def test_reschedule_request_round_trips_date():
+    req = RescheduleOriginalRequest(new_date=date(2026, 5, 8))
+    assert req.new_date == date(2026, 5, 8)
