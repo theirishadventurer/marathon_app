@@ -49,3 +49,44 @@ async def test_streak_walker_counts_consecutive_done_days(seeded_db):
 
     stats = await build_plan_stats(seeded_db, athlete.id, scope="cycle")
     assert stats.streak_days >= 1
+
+
+@pytest.mark.asyncio
+async def test_plan_stats_endpoint_returns_kpis(client, seeded_auth_headers):
+    response = await client.get(
+        "/plan/stats",
+        params={"scope": "cycle"},
+        headers=seeded_auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["scope"] == "cycle"
+    assert "on_plan_pct" in body
+    assert "done_count" in body
+    assert "skipped_count" in body
+    assert "streak_days" in body
+    assert "planned_mi" in body
+    assert "actual_mi" in body
+
+
+@pytest.mark.asyncio
+async def test_plan_stats_endpoint_defaults_to_cycle(client, seeded_auth_headers):
+    response = await client.get("/plan/stats", headers=seeded_auth_headers)
+    assert response.status_code == 200
+    assert response.json()["scope"] == "cycle"
+
+
+@pytest.mark.asyncio
+async def test_plan_stats_endpoint_requires_auth(client):
+    response = await client.get("/plan/stats")
+    assert response.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_plan_stats_endpoint_400_on_invalid_scope(client, seeded_auth_headers):
+    response = await client.get(
+        "/plan/stats",
+        params={"scope": "garbage"},
+        headers=seeded_auth_headers,
+    )
+    assert response.status_code == 400

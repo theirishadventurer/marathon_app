@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,10 +17,11 @@ from app.schemas.plan import (
     PlanCurrentOut,
     PlanFullOut,
     PlannedWorkoutOut,
+    PlanStatsOut,
     TodayOut,
     WeekOut,
 )
-from app.services.plan_aggregator import build_plan_full
+from app.services.plan_aggregator import build_plan_full, build_plan_stats
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -62,8 +63,6 @@ async def plan_current(
 ):
     plan = await _active_plan(db, athlete.id)
     if plan is None:
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="No active plan")
 
     today = datetime.date.today()
@@ -157,3 +156,14 @@ async def plan_full(
     db: AsyncSession = Depends(get_db),
 ):
     return await build_plan_full(db, athlete.id)
+
+
+@router.get("/stats", response_model=PlanStatsOut)
+async def plan_stats(
+    scope: str = "cycle",
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    if scope not in ("cycle", "plan"):
+        raise HTTPException(status_code=400, detail="scope must be 'cycle' or 'plan'")
+    return await build_plan_stats(db, athlete.id, scope=scope)  # type: ignore[arg-type]
