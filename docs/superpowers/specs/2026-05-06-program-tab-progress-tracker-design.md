@@ -1,9 +1,9 @@
 # Program Tab + Progress Tracker — Design
 
-**Status:** design (no code)
+**Status:** ✅ **APPROVED for implementation (2026-05-06)** — Option A (World map) locked in. **Weekly mileage tracker added** as required scope (see §5.5). Options B and C remain documented below for posterity but are not being built.
 **Date:** 2026-05-06
 **Owner:** session lead (CBell)
-**Branch:** `session-2/backend-move-endpoints` (doc-only; implementation deferred to a follow-up session)
+**Branch:** `session-2/backend-move-endpoints` (doc; implementation deferred to a follow-up session)
 **Related plan:** `PLAN.md` — Marathon Trilogy 2026-2027 (3 cycles, 52 weeks, 364 workouts)
 
 ---
@@ -303,6 +303,19 @@ Why A over B and C:
 swaps A for C without altering navigation or endpoints. C only needs
 mileage rollups already on the response (section 5). Heat-map (B) is
 parking-lot.
+
+---
+
+### Decision (2026-05-06)
+
+User selected **Option A**, with one explicit addition: a **weekly mileage
+tracker** must be a first-class part of the Program tab, comparing actual
+mileage to the planned weekly target. Marathon training lives or dies by
+weekly mileage — it is not optional and not a v2 feature.
+
+The tracker lives **below** the three cycle lanes as a dedicated
+`WeeklyMileageTracker` section, plus each `WeekTile` carries a per-week
+mileage glyph. Full spec in §5.5.
 
 ---
 
@@ -619,6 +632,161 @@ class PlanStatsOut(BaseModel):
 
 ---
 
+## 5.5 Weekly Mileage Tracker
+
+**Why this is mandatory.** Marathon training is governed by weekly
+mileage. The plan's philosophy explicitly calls out the 80/20 split,
+peak weeks, and cutbacks — all of which only make sense in mileage
+terms. Adherence-percent and a streak counter are not enough; the
+athlete needs to see, at a glance, **how their actual running mileage
+this week and this cycle compares to the plan's prescription.**
+
+### Two surfaces
+
+The tracker shows up in two coordinated places, fed by the same
+`WeekRollup` data already on the `/plan/full` response. **No new
+backend work** beyond what §5 specifies.
+
+#### Surface 1: Per-tile mileage glyph (inside every `WeekTile`)
+
+Each tile in the cycle lanes carries a one-line mileage summary, sized
+to fit beneath the `WK n` label. Format depends on the tile's `status`:
+
+| Status | Glyph | Example | Notes |
+|---|---|---|---|
+| `done` (past, on-plan) | `WK 04 ✓ 18mi` | green tile, cream ink | actual ≥ planned |
+| `done` but **under-mileage** | `WK 04 ✓ 16/18mi` | green tile, mustard ink | actual < planned by ≥1 mi |
+| `current` | `WK 05 ▶ 12/22mi` | yellow tile | live progress: actual / planned to date |
+| `partial` (past, some skipped) | `WK 06 ! 8/22mi` | red tile | red ink emphasises the gap |
+| `upcoming` | `WK 12 — 28mi` | bg tile | planned only |
+| `cutback` | `WK 08 ↓ 14mi` | blue accent | the lower mileage is intentional, not a miss |
+| `peak` | `WK 23 ★ 42mi` | hi accent | star marks the peak; show planned (or actual when in past) |
+| `race` | `[FLAG] MCM 26.2` | hi tile | race day handled by `RaceMilestoneTile` |
+
+`mi` is rendered with one decimal only when actual mileage is non-zero
+and a fractional digit is meaningful (e.g., `16.5/18mi`). Round to
+integer in upcoming tiles.
+
+#### Surface 2: `WeeklyMileageTracker` panel (below the lanes)
+
+A dedicated horizontal bar chart sitting below the three cycle lanes.
+Default scope: **active cycle** (e.g., the 28 P1 weeks). Cycle scope is
+chosen because the chart's job is "are you tracking the cycle's
+mileage curve correctly?" — not "show me 52 weeks at once."
+
+```
++------------------------------------------------------------+
+|  WEEKLY MILEAGE  -  P1 MCM       [P1] [P2] [P3]            |
+|  PLANNED 187mi   ACTUAL 42mi   DELTA -3mi (on track)       |
++------------------------------------------------------------+
+|                                                            |
+|  mi                                          PEAK 42       |
+|  45 |                                  [_]                 |
+|  40 |                              [_][_][_]               |
+|  35 |                       [_][_][_][_][_]                |
+|  30 |              [_][_][_][_][_][_][_][_]                |
+|  25 |        [_][_][_][_][_][_][_][_][_][_][_]             |
+|  20 |  [#][#][_][_][_][_][_][_][_][_][_][_][_]             |
+|  15 |  [#][#][#][>][_][_][_][_][_][_][_][_][_][_]          |
+|  10 |  [#][#][#][>][_][_][_][_][_][_][_][_][_][_][_]       |
+|   5 |  [#][#][#][>][_][_][_][_][_][_][_][_][_][_][_][_]    |
+|   0 +-W1-W2-W3-W4-W5-W6-W7-W8-W9-...---W23------------W28-+|
+|         ^done  ^now (12/22)              ^peak    ^race    |
+|                                                            |
+|  [#] actual    [_] planned (outline)    [>] in progress    |
+|  Cumulative:  ····· planned    ===== actual                |
++------------------------------------------------------------+
+```
+
+**Encoding.**
+
+- One column per week within the active cycle.
+- Outlined `[_]` bar = `planned_mi` for that week.
+- Filled `[#]` bar = `actual_mi` for that week (sourced from
+  reconciled completed runs, capped at the planned bar height for
+  layout purposes — the cumulative line shows over-performance).
+- Current week: `[>]` half-fill bar with progress = actual / planned-to-date.
+- Cutback weeks naturally show as shorter outline bars.
+- Cycle peak week tagged with a `★` and the planned long-run mileage.
+- A **cumulative-mileage overlay** runs left-to-right: dotted line
+  for planned cumulative, solid line for actual cumulative. The
+  athlete can see at a glance whether they're tracking ahead or
+  behind the plan curve.
+
+**Header readout.**
+
+The panel header shows three numbers:
+
+- `PLANNED <N>mi` — sum of `planned_mi` across the cycle's weeks
+  whose `week_end <= today`.
+- `ACTUAL <N>mi` — sum of `actual_mi` for the same window.
+- `DELTA <±N>mi` — actual minus planned, with a label:
+  - `delta >= -2`  -> `(on track)` (green)
+  - `-5 <= delta < -2` -> `(slightly behind)` (mustard)
+  - `delta < -5` -> `(behind)` (red)
+  - `delta > +2` -> `(ahead)` (cyan)
+  - 2-mile tolerance tracks "rounding noise" from per-run reconciliation.
+
+**Cycle toggle.**
+
+`[P1] [P2] [P3]` segmented control at the top right. Default: active
+cycle. Tapping switches the chart's data in place. Past cycles show
+both planned and actual end-of-cycle totals. Future cycles show
+planned only (no actual data yet).
+
+**Interactions.**
+
+- Tap a column -> `Week` view for that Monday (same hand-off as
+  `WeekTile`).
+- Long-press a column -> tooltip popover: `WK n  planned 22mi  actual
+  18mi  (-4mi, 4 of 7 runs)`.
+- The cycle toggle persists in component state for the session;
+  resets to the active cycle on app cold start.
+
+**Visual rhythm.**
+
+The chart sits inside a `RetroBorder`-wrapped panel matching the
+cycle-lane width. Y-axis uses 5-mi gridlines (light slate, dashed).
+X-axis week labels rotate 0° (no rotation; we have horizontal room).
+Race week column has a small flag marker above the bar.
+
+**Why this beats the per-tile glyph alone.**
+
+Per-tile glyphs answer "did I hit week 4?" — the chart answers "am I
+tracking the **plan's curve**?" That second question is the one
+marathon athletes lose sleep over. The cumulative overlay makes the
+whole-cycle trajectory legible in one glance, which is the entire
+purpose of bringing this surface in.
+
+### Data dependencies
+
+All values come from `/plan/full`'s `WeekRollup[]`:
+
+- `planned_mi`, `actual_mi` — already in the response shape (§5.1).
+- `is_cutback`, `is_peak`, `has_race` — already in the response.
+- `status` — already in the response; drives both glyph and bar fill.
+
+Cumulative overlay is computed client-side in `WeeklyMileageTracker`:
+two `reduce` passes over the active cycle's weeks. Trivial cost.
+
+The header readout (`PLANNED / ACTUAL / DELTA`) is computed
+client-side from the same data — no separate endpoint, no risk of
+cache skew.
+
+### Out of scope for the tracker
+
+- Daily mileage breakdowns within a week (defer; `WorkoutDetail`
+  already shows per-workout planned vs actual).
+- Pace overlay (4-week rolling avg easy pace) — already deferred in
+  §4.
+- Injury-risk red flags ("you went up 18% week-over-week, the rule is
+  10%"). Tempting; needs a second reconciler pass and a calibrated
+  threshold. Parking-lot.
+- Per-run heart-rate distribution. Belongs in the run-analyst chat in
+  Session 3.
+
+---
+
 ## 6. Frontend component plan
 
 ### New tab in `RootNavigator.tsx`
@@ -650,12 +818,13 @@ Structure:
 ProgramScreen
 +- SafeAreaView
    +- ScrollView (vertical, refresh control)
-      +- ProgramHeader  (title, week-of-N strip)
-      +- StatsPanel     (3 + 2 RetroCard grid; section 4)
-      +- LaneRow        (horizontal scroll on small phones)
-         +- CycleLane (Phase 1)
-         +- CycleLane (Phase 2)
-         +- CycleLane (Phase 3)
+      +- ProgramHeader        (title, week-of-N strip)
+      +- StatsPanel           (3 + 2 RetroCard grid; section 4)
+      +- LaneRow              (horizontal scroll on small phones)
+      |  +- CycleLane (Phase 1)
+      |  +- CycleLane (Phase 2)
+      |  +- CycleLane (Phase 3)
+      +- WeeklyMileageTracker (cycle-scoped bar chart; §5.5)
 ```
 
 ### New components
@@ -663,10 +832,11 @@ ProgramScreen
 | Component | Location | Notes |
 |---|---|---|
 | `CycleLane` | `mobile/src/components/program/CycleLane.tsx` | Vertical stack of `WeekTile` + race milestone tile. Header shows cycle name + race date. Auto-scrolls to current week on mount. |
-| `WeekTile` | `mobile/src/components/program/WeekTile.tsx` | Square tile, family-coloured by `status`. Shows `WK n` and small mileage glyph. Long-press tooltip. Reuses `nesBorder` + `nesShadow`. |
+| `WeekTile` | `mobile/src/components/program/WeekTile.tsx` | Square tile, family-coloured by `status`. Shows `WK n` and the per-tile mileage glyph from §5.5 (`✓ 18mi` / `▶ 12/22mi` / `! 8/22mi` / `↓ 14mi` / `★ 42mi`). Long-press tooltip. Reuses `nesBorder` + `nesShadow`. |
 | `RaceMilestoneTile` | `mobile/src/components/program/RaceMilestoneTile.tsx` | Filled `accentHi` tile with flag glyph, race name, date. Caps each lane. |
 | `StatTile` | `mobile/src/components/program/StatTile.tsx` | Wraps `RetroCard` with a label (`PressStart2P` 8pt) + value (`VT323` 22pt). Used in StatsPanel. |
 | `StatsPanel` | `mobile/src/components/program/StatsPanel.tsx` | Grid of `StatTile`s. Layout per section 4. |
+| `WeeklyMileageTracker` | `mobile/src/components/program/WeeklyMileageTracker.tsx` | Per §5.5. Cycle-scoped horizontal bar chart with planned (outline) + actual (fill) per week, cumulative-mileage overlay (planned dotted, actual solid), header readout `PLANNED / ACTUAL / DELTA`, `[P1][P2][P3]` segmented cycle toggle, tap-column → Week navigation, long-press → tooltip. **No charting library**: render bars and gridlines as `<View>` blocks; render overlay lines via `react-native-svg` (already a transitive dep of `@gorhom/bottom-sheet`) or as 1px-thick step segments using `<View>` if SVG must be avoided. |
 
 All new components live under `components/program/` to keep the existing
 `components/` flat list uncluttered.
@@ -764,8 +934,18 @@ A future implementation session can call this feature complete when:
 - [ ] `ProgramScreen` renders three `CycleLane`s with all 52 week tiles
       coloured by `status` from the API.
 - [ ] Stats panel shows the six KPIs from section 4.
+- [ ] **Each `WeekTile` shows the per-status mileage glyph from §5.5**
+      (`✓ 18mi` / `▶ 12/22mi` / `! 8/22mi` / `↓ 14mi` / `★ 42mi`).
+- [ ] **`WeeklyMileageTracker` renders below the cycle lanes** with the
+      cycle-scoped bar chart, planned vs actual bars per week,
+      cumulative overlay, and `PLANNED / ACTUAL / DELTA` header.
+- [ ] **Cycle toggle (`P1 P2 P3`) on the tracker** swaps the data
+      in place; defaults to the active cycle on cold start.
 - [ ] Tapping a `WeekTile` navigates to `Week` with that Monday as the
       cursor.
+- [ ] Tapping a tracker bar column navigates to `Week` for that Monday.
+- [ ] Long-pressing a tracker bar column shows the planned/actual/delta
+      tooltip popover.
 - [ ] Tapping a `RaceMilestoneTile` opens `WorkoutDetail` for the race.
 - [ ] Pull-to-refresh works on `ProgramScreen`.
 - [ ] Visuals match current retro tokens (no new colours, no new fonts,
