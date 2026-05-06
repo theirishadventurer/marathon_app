@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
-import type { PlanCurrentOut, TodayOut, WeekOut } from '@/api/types';
+import type {
+  PlanCurrentOut, PlanFullOut, PlanStatsOut, TodayOut, WeekOut,
+} from '@/api/types';
 
 export function usePlanCurrent() {
   return useQuery({
@@ -26,5 +28,22 @@ export function usePlanWeek(date?: string) {
       });
       return res.data;
     },
+  });
+}
+
+export function usePlanFull() {
+  return useQuery({
+    queryKey: ['plan', 'full'],
+    queryFn: async () => (await api.get<PlanFullOut>('/plan/full')).data,
+    staleTime: 60_000,
+  });
+}
+
+export function useProgressStats(scope: 'cycle' | 'plan' = 'cycle') {
+  return useQuery({
+    queryKey: ['plan', 'stats', scope],
+    queryFn: async () =>
+      (await api.get<PlanStatsOut>('/plan/stats', { params: { scope } })).data,
+    staleTime: 60_000,
   });
 }
