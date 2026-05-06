@@ -2,32 +2,6 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.auth import create_access_token
-from app.models.athlete import Athlete
-
-
-@pytest.fixture
-async def seeded_db(db: AsyncSession) -> AsyncSession:
-    from app.seed.load_plan import seed_plan
-
-    await seed_plan(db, plan_path="PLAN.md", password="testpass")
-    return db
-
-
-@pytest.fixture
-async def seeded_client(seeded_db, client):
-    return client
-
-
-@pytest.fixture
-async def seeded_auth_headers(seeded_db):
-    result = await seeded_db.execute(select(Athlete).limit(1))
-    athlete = result.scalar_one()
-    token, _ = create_access_token(str(athlete.id))
-    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.mark.asyncio

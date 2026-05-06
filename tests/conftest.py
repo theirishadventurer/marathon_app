@@ -3,9 +3,10 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.auth import hash_password
+from app.auth import create_access_token, hash_password
 from app.config import settings
 from app.deps import get_db
 from app.main import app
@@ -66,3 +67,29 @@ async def auth_token(athlete: Athlete) -> str:
 @pytest.fixture
 async def auth_headers(auth_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {auth_token}"}
+
+
+@pytest.fixture
+async def seeded_db(db: AsyncSession) -> AsyncSession:
+    from app.seed.load_plan import seed_plan
+
+    await seed_plan(db, plan_path="PLAN.md", password="testpass")
+    return db
+
+
+@pytest.fixture
+async def seeded_client(seeded_db: AsyncSession, client: AsyncClient) -> AsyncClient:
+    return client
+
+
+@pytest.fixture
+async def athlete_token(seeded_db: AsyncSession) -> str:
+    result = await seeded_db.execute(select(Athlete).limit(1))
+    athlete = result.scalar_one()
+    token, _ = create_access_token(str(athlete.id))
+    return token
+
+
+@pytest.fixture
+async def seeded_auth_headers(athlete_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {athlete_token}"}

@@ -1,16 +1,7 @@
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.workout import PlannedWorkout
-
-
-@pytest.fixture
-async def seeded_db(db: AsyncSession) -> AsyncSession:
-    from app.seed.load_plan import seed_plan
-
-    await seed_plan(db, plan_path="PLAN.md", password="testpass")
-    return db
 
 
 @pytest.mark.asyncio
