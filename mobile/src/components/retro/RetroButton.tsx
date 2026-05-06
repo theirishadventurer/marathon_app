@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, Text, View, type ViewStyle } from 'react-native';
 
-import { colors } from '@/theme/tokens';
-import { nesBorder, nesShadow } from '@/theme/retro';
+import { colors, radius } from '@/theme/tokens';
+import { softBorder } from '@/theme/retro';
 
 type Tone = 'default' | 'primary' | 'danger' | 'ghost';
 
@@ -28,10 +28,18 @@ const TONE_INK: Record<Tone, string> = {
   ghost: colors.ink,
 };
 
+const TONE_BORDER: Record<Tone, boolean> = {
+  default: true,
+  primary: false,   // primary CTAs are filled, no border
+  danger: true,
+  ghost: true,
+};
+
 export function RetroButton({
   label, onPress, disabled = false, tone = 'default', style,
 }: Props) {
   const [pressed, setPressed] = useState(false);
+  const showBorder = TONE_BORDER[tone];
   return (
     <Pressable
       onPress={onPress}
@@ -39,14 +47,13 @@ export function RetroButton({
       onPressOut={() => { setPressed(false); }}
       disabled={disabled}
       style={[
-        nesBorder(),
-        pressed ? null : nesShadow(),
+        showBorder ? softBorder(1, radius.md) : { borderRadius: radius.md },
         {
           backgroundColor: TONE_BG[tone],
           paddingHorizontal: 14,
           paddingVertical: 10,
           opacity: disabled ? 0.4 : 1,
-          transform: pressed ? [{ translateX: 2 }, { translateY: 2 }] : [],
+          transform: pressed ? [{ translateX: 1 }, { translateY: 1 }] : [],
         },
         style,
       ]}
