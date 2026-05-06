@@ -7,11 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanCurrent, usePlanWeek } from '@/api/hooks/usePlan';
 import type { PlannedWorkoutOut } from '@/api/types';
+import { DisplacedSheet } from '@/components/DisplacedSheet';
 import { DraggableWeekList } from '@/components/DraggableWeekList';
+import { EditQuestSheet } from '@/components/EditQuestSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
 import { WhySheet } from '@/components/WhySheet';
 import { useDragMove } from '@/hooks/useDragMove';
-import { addDays, fromIso, toIso } from '@/lib/dates';
+import { useEditFlow } from '@/hooks/useEditFlow';
+import { addDays, fromIso, startOfWeek, toIso } from '@/lib/dates';
 import type { RootStackParamList } from '@/navigation/types';
 import { colors } from '@/theme/tokens';
 
@@ -29,10 +32,15 @@ export function WeekScreen() {
   const week = usePlanWeek(cursorIso);
   const plan = usePlanCurrent();
   const drag = useDragMove();
+  const flow = useEditFlow();
 
   const whySheetRef = useRef<BottomSheet>(null);
   const proposalSheetRef = useRef<BottomSheet>(null);
   const [whyWorkout, setWhyWorkout] = useState<PlannedWorkoutOut | null>(null);
+
+  const weekStartIso = flow.editTarget !== null
+    ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
+    : null;
 
   // Open proposal sheet when a proposal lands or when we are awaiting one.
   useEffect(() => {
@@ -146,6 +154,7 @@ export function WeekScreen() {
             week={week.data}
             onWorkoutPress={openDetail}
             onWorkoutWhy={openWhy}
+            onWorkoutEdit={flow.openEdit}
             onMoveRequest={requestMove}
             disabled={drag.pending !== null}
           />
@@ -159,6 +168,29 @@ export function WeekScreen() {
         submitting={drag.submitting}
         onApply={drag.apply}
         onCancel={drag.cancel}
+      />
+      <EditQuestSheet
+        ref={flow.editRef}
+        workout={flow.editTarget}
+        submitting={flow.editPending}
+        onConfirm={flow.confirmEdit}
+        onClose={flow.closeEdit}
+      />
+      <DisplacedSheet
+        ref={flow.displacedRef}
+        snapshot={flow.displaced?.snapshot ?? null}
+        weekStartIso={weekStartIso}
+        submitting={flow.reschedulePending}
+        onPick={flow.pickDisplacedDay}
+        onDrop={flow.dropDisplaced}
+        onClose={flow.dropDisplaced}
+      />
+      <ProposalSheet
+        ref={flow.proposalRef}
+        proposal={flow.proposal?.data ?? null}
+        submitting={flow.applyPending}
+        onApply={flow.applyProposal}
+        onCancel={flow.cancelProposal}
       />
     </SafeAreaView>
   );

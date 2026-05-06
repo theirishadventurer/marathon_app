@@ -5,8 +5,13 @@ import Markdown from 'react-native-markdown-display';
 
 import { useSkipWorkout, useWorkoutDetail } from '@/api/hooks/useWorkouts';
 import type { CompletedWorkoutOut, PlannedWorkoutOut, ReconciliationOut } from '@/api/types';
+import { DisplacedSheet } from '@/components/DisplacedSheet';
+import { EditQuestSheet } from '@/components/EditQuestSheet';
+import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
+import { useEditFlow } from '@/hooks/useEditFlow';
+import { fromIso, startOfWeek, toIso } from '@/lib/dates';
 import {
   formatDistance,
   formatDuration,
@@ -137,6 +142,10 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const { workoutId } = route.params;
   const detail = useWorkoutDetail(workoutId);
   const skip = useSkipWorkout();
+  const flow = useEditFlow();
+  const weekStartIso = flow.editTarget !== null
+    ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
+    : null;
 
   const onSkip = () => {
     Alert.alert(
@@ -178,6 +187,17 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
           </Text>
         </Pressable>
         <View style={{ flex: 1 }} />
+        {detail.data?.planned !== null && detail.data?.planned !== undefined && (
+          <Pressable
+            onPress={() => { flow.openEdit(detail.data!.planned!); }}
+            hitSlop={10}
+            style={{ marginLeft: 'auto' }}
+          >
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 10, color: colors.accentRun, letterSpacing: 1 }}>
+              EDIT
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
@@ -256,6 +276,30 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
           disabled={skip.isPending || isSkipped}
         />
       </View>
+
+      <EditQuestSheet
+        ref={flow.editRef}
+        workout={flow.editTarget}
+        submitting={flow.editPending}
+        onConfirm={flow.confirmEdit}
+        onClose={flow.closeEdit}
+      />
+      <DisplacedSheet
+        ref={flow.displacedRef}
+        snapshot={flow.displaced?.snapshot ?? null}
+        weekStartIso={weekStartIso}
+        submitting={flow.reschedulePending}
+        onPick={flow.pickDisplacedDay}
+        onDrop={flow.dropDisplaced}
+        onClose={flow.dropDisplaced}
+      />
+      <ProposalSheet
+        ref={flow.proposalRef}
+        proposal={flow.proposal?.data ?? null}
+        submitting={flow.applyPending}
+        onApply={flow.applyProposal}
+        onCancel={flow.cancelProposal}
+      />
     </SafeAreaView>
   );
 }

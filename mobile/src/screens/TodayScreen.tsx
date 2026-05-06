@@ -7,10 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanCurrent, usePlanToday } from '@/api/hooks/usePlan';
 import type { PlannedWorkoutOut } from '@/api/types';
+import { DisplacedSheet } from '@/components/DisplacedSheet';
+import { EditQuestSheet } from '@/components/EditQuestSheet';
+import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { WhySheet } from '@/components/WhySheet';
-import { fromIso } from '@/lib/dates';
+import { useEditFlow } from '@/hooks/useEditFlow';
+import { fromIso, startOfWeek, toIso } from '@/lib/dates';
 import type { RootStackParamList } from '@/navigation/types';
 import { colors } from '@/theme/tokens';
 
@@ -25,6 +29,10 @@ export function TodayScreen() {
   const plan = usePlanCurrent();
   const sheetRef = useRef<BottomSheet>(null);
   const [whyWorkout, setWhyWorkout] = useState<PlannedWorkoutOut | null>(null);
+  const flow = useEditFlow();
+  const weekStartIso = flow.editTarget !== null
+    ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
+    : null;
 
   const onRefresh = useCallback(async () => {
     await Promise.all([today.refetch(), plan.refetch()]);
@@ -105,6 +113,7 @@ export function TodayScreen() {
             workout={w}
             onPress={() => { openDetail(w); }}
             onWhy={() => { openWhy(w); }}
+            onEdit={() => { flow.openEdit(w); }}
           />
         ))}
 
@@ -124,6 +133,29 @@ export function TodayScreen() {
       </ScrollView>
 
       <WhySheet ref={sheetRef} workout={whyWorkout} onClose={closeWhy} />
+      <EditQuestSheet
+        ref={flow.editRef}
+        workout={flow.editTarget}
+        submitting={flow.editPending}
+        onConfirm={flow.confirmEdit}
+        onClose={flow.closeEdit}
+      />
+      <DisplacedSheet
+        ref={flow.displacedRef}
+        snapshot={flow.displaced?.snapshot ?? null}
+        weekStartIso={weekStartIso}
+        submitting={flow.reschedulePending}
+        onPick={flow.pickDisplacedDay}
+        onDrop={flow.dropDisplaced}
+        onClose={flow.dropDisplaced}
+      />
+      <ProposalSheet
+        ref={flow.proposalRef}
+        proposal={flow.proposal?.data ?? null}
+        submitting={flow.applyPending}
+        onApply={flow.applyProposal}
+        onCancel={flow.cancelProposal}
+      />
     </SafeAreaView>
   );
 }

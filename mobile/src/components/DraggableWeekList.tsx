@@ -24,6 +24,7 @@ interface Props {
   week: WeekOut;
   onWorkoutPress: (w: PlannedWorkoutOut) => void;
   onWorkoutWhy: (w: PlannedWorkoutOut) => void;
+  onWorkoutEdit?: (w: PlannedWorkoutOut) => void;
   onMoveRequest: (w: PlannedWorkoutOut, newDate: string) => void;
   disabled?: boolean;
 }
@@ -44,6 +45,7 @@ interface DraggableProps {
   hoveredDate: { value: string | null };
   onPress: () => void;
   onWhy: () => void;
+  onEdit?: () => void;
   onMove: (newDate: string) => void;
   disabled: boolean;
 }
@@ -54,6 +56,7 @@ function DraggableWorkout({
   hoveredDate,
   onPress,
   onWhy,
+  onEdit,
   onMove,
   disabled,
 }: DraggableProps) {
@@ -132,7 +135,7 @@ function DraggableWorkout({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={animatedStyle}>
-        <WorkoutCard workout={workout} compact onPress={onPress} onWhy={onWhy} />
+        <WorkoutCard workout={workout} compact onPress={onPress} onWhy={onWhy} onEdit={onEdit} />
       </Animated.View>
     </GestureDetector>
   );
@@ -166,6 +169,7 @@ export function DraggableWeekList({
   week,
   onWorkoutPress,
   onWorkoutWhy,
+  onWorkoutEdit,
   onMoveRequest,
   disabled = false,
 }: Props) {
@@ -226,6 +230,7 @@ export function DraggableWeekList({
                     hoveredDate={hoveredDate}
                     onPress={() => { onWorkoutPress(w); }}
                     onWhy={() => { onWorkoutWhy(w); }}
+                    onEdit={onWorkoutEdit !== undefined ? () => { onWorkoutEdit(w); } : undefined}
                     onMove={(newDate) => { onMoveRequest(w, newDate); }}
                     disabled={disabled}
                   />
