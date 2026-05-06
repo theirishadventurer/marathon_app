@@ -68,3 +68,56 @@ async def test_patch_workout_changes_type_and_snapshots(client, athlete_token, s
     assert snap is not None
     assert snap["type"] == "strength_a"
     assert snap["family"] == "strength"
+
+
+@pytest.mark.asyncio
+async def test_patch_workout_404_for_nonexistent(client, athlete_token):
+    response = await client.patch(
+        "/workouts/00000000-0000-0000-0000-000000000000",
+        json={"type": "easy"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_patch_workout_409_for_done(client, athlete_token, seeded_db):
+    result = await seeded_db.execute(select(PlannedWorkout).limit(1))
+    workout = result.scalar_one()
+    workout.status = "done"
+    await seeded_db.commit()
+    response = await client.patch(
+        f"/workouts/{workout.id}",
+        json={"type": "easy"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_patch_workout_snapshot_preserved_on_second_edit(client, athlete_token, seeded_db):
+    result = await seeded_db.execute(
+        select(PlannedWorkout).where(PlannedWorkout.type == "strength_a").limit(1)
+    )
+    workout = result.scalar_one()
+    wid = str(workout.id)
+
+    # First edit: strength_a -> easy
+    r1 = await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "easy", "distance_mi": 5},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    snap1 = r1.json()["original_snapshot"]
+
+    # Second edit: easy -> tempo
+    r2 = await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "tempo"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    snap2 = r2.json()["original_snapshot"]
+
+    # Snapshot must NOT have been overwritten — still strength_a
+    assert snap1 == snap2
+    assert snap2["type"] == "strength_a"
