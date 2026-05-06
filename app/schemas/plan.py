@@ -25,7 +25,7 @@ class PlannedWorkoutOut(BaseModel):
     title: str
     description_md: str
     intent_md: str
-    original_snapshot: dict | None = Field(default=None, alias="original_snapshot_json")
+    original_snapshot: dict | None = Field(default=None, validation_alias="original_snapshot_json")
 
 
 class CycleOut(BaseModel):
