@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.deps import get_current_athlete, get_db
+from app.lib.workout_family import family_for_planned
 from app.models.agent import AgentMessage
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
 from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutStatus
+from app.schemas.edit import EditWorkoutRequest
 from app.schemas.move import ApplyMoveRequest, MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
@@ -82,6 +84,74 @@ async def skip_workout(
     planned.status = WorkoutStatus.skipped
     await db.commit()
     return {"ok": True}
+
+
+SNAPSHOT_FIELDS = (
+    "type",
+    "family",
+    "distance_mi",
+    "duration_min",
+    "title",
+    "target_pace",
+    "target_hr_zone",
+)
+
+
+def _snapshot_of(w: PlannedWorkout) -> dict:
+    return {
+        "type": w.type.value if w.type else None,
+        "family": w.family.value if w.family else None,
+        "distance_mi": str(w.distance_mi) if w.distance_mi is not None else None,
+        "duration_min": w.duration_min,
+        "title": w.title,
+        "target_pace": w.target_pace,
+        "target_hr_zone": w.target_hr_zone,
+    }
+
+
+@router.patch("/{workout_id}", response_model=PlannedWorkoutOut)
+async def edit_workout(
+    workout_id: uuid.UUID,
+    body: EditWorkoutRequest,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(PlannedWorkout)
+        .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+        .join(Plan, Cycle.plan_id == Plan.id)
+        .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+    )
+    planned = result.scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    if planned.status in (WorkoutStatus.done, WorkoutStatus.skipped):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot edit a {planned.status.value} workout",
+        )
+
+    updates = body.model_dump(exclude_unset=True)
+    if not updates:
+        return planned  # nothing to do
+
+    # Snapshot pre-edit state on the FIRST edit only
+    if planned.original_snapshot_json is None:
+        planned.original_snapshot_json = _snapshot_of(planned)
+
+    if "type" in updates:
+        planned.type = updates["type"]
+        planned.family = family_for_planned(updates["type"])
+    if "distance_mi" in updates:
+        planned.distance_mi = updates["distance_mi"]
+    if "duration_min" in updates:
+        planned.duration_min = updates["duration_min"]
+    if "title" in updates:
+        planned.title = updates["title"]
+
+    await db.commit()
+    await db.refresh(planned)
+    return planned
 
 
 @router.patch("/{workout_id}/move", response_model=ProposalOut)

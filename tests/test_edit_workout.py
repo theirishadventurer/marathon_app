@@ -41,3 +41,30 @@ def test_edit_request_rejects_negative_distance():
 def test_reschedule_request_round_trips_date():
     req = RescheduleOriginalRequest(new_date=date(2026, 5, 8))
     assert req.new_date == date(2026, 5, 8)
+
+
+@pytest.mark.asyncio
+async def test_patch_workout_changes_type_and_snapshots(client, athlete_token, seeded_db):
+    # Pick the first planned strength workout
+    result = await seeded_db.execute(
+        select(PlannedWorkout).where(PlannedWorkout.type == "strength_a").limit(1)
+    )
+    workout = result.scalar_one()
+    wid = str(workout.id)
+
+    response = await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "easy", "distance_mi": 5.0, "duration_min": 50, "title": "Easy run"},
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "easy"
+    assert body["family"] == "running"
+    assert body["distance_mi"] == "5.0"
+    assert body["duration_min"] == 50
+    assert body["title"] == "Easy run"
+    snap = body["original_snapshot"]
+    assert snap is not None
+    assert snap["type"] == "strength_a"
+    assert snap["family"] == "strength"
