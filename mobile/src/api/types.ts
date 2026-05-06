@@ -194,3 +194,65 @@ export interface RescheduleOriginalResponse {
   new_workout_id: UUID;
   proposal: ProposalOut;
 }
+
+// Program tab
+export type WeekStatus = 'done' | 'partial' | 'current' | 'upcoming' | 'skipped';
+
+export interface WeekRollup {
+  week_number: number;
+  week_start: IsoDate;
+  week_end: IsoDate;
+  planned_count: number;
+  done_count: number;
+  skipped_count: number;
+  moved_count: number;
+  planned_mi: string;   // Decimal serialized as string
+  actual_mi: string;
+  is_cutback: boolean;
+  is_peak: boolean;
+  has_race: boolean;
+  status: WeekStatus;
+}
+
+export interface CycleFull extends CycleOut {
+  peak_week_target: number | null;
+  race_planned_id: UUID | null;
+  weeks: WeekRollup[];
+}
+
+export interface PlanFullOut {
+  plan_name: string;
+  plan_id: UUID;
+  start_date: IsoDate;
+  end_date: IsoDate;
+  cycles: CycleFull[];
+}
+
+export type MilestoneKind = 'peak' | 'race' | 'decision';
+
+export interface NextMilestone {
+  kind: MilestoneKind;
+  label: string;
+  date: IsoDate;
+}
+
+export interface PeakWeekSummary {
+  week_number: number;
+  planned_mi: string;
+  long_run_mi: string | null;
+}
+
+export interface PlanStatsOut {
+  scope: 'cycle' | 'plan';
+  cycle_id: UUID | null;
+  on_plan_pct: number;
+  done_count: number;
+  skipped_count: number;
+  planned_to_date_count: number;
+  planned_mi: string;
+  actual_mi: string;
+  streak_days: number;
+  next_milestone: NextMilestone | null;
+  peak_week: PeakWeekSummary | null;
+  computed_at: IsoDateTime;
+}
