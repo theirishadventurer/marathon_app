@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -18,7 +18,10 @@ from app.models.workout import (
 )
 from app.schemas.plan import (
     CycleFull,
+    NextMilestone,
+    PeakWeekSummary,
     PlanFullOut,
+    PlanStatsOut,
     WeekRollup,
 )
 
@@ -201,3 +204,231 @@ def _week_status(
     if skipped_count > 0 or done_count == 0:
         return "skipped" if done_count == 0 else "partial"
     return "partial"
+
+
+async def build_plan_stats(
+    db: AsyncSession,
+    athlete_id: UUID,
+    scope: Literal["cycle", "plan"] = "cycle",
+) -> PlanStatsOut:
+    """Compute KPIs for the active cycle (default) or whole plan."""
+    plan = (
+        await db.execute(
+            select(Plan).where(Plan.athlete_id == athlete_id, Plan.is_active.is_(True)).limit(1)
+        )
+    ).scalar_one_or_none()
+    if plan is None:
+        raise ValueError(f"No active plan for athlete {athlete_id}")
+
+    today = date.today()
+
+    if scope == "cycle":
+        cycle = await _active_cycle(db, plan.id, today)
+        if cycle is None:
+            return _empty_stats(scope, today)
+        cycle_id_for_filter: UUID | None = cycle.id
+    else:
+        cycle_id_for_filter = None
+        cycle = None
+
+    counts_q = (
+        select(
+            func.count().filter(PlannedWorkout.status == WorkoutStatus.done).label("done"),
+            func.count().filter(PlannedWorkout.status == WorkoutStatus.skipped).label("skipped"),
+            func.count()
+            .filter(
+                PlannedWorkout.status.in_(
+                    [WorkoutStatus.done, WorkoutStatus.skipped, WorkoutStatus.moved]
+                )
+            )
+            .label("settled"),
+            func.count().label("total_to_date"),
+            func.coalesce(func.sum(PlannedWorkout.distance_mi), 0).label("planned_mi_total"),
+        )
+        .join(Cycle, Cycle.id == PlannedWorkout.cycle_id)
+        .where(Cycle.plan_id == plan.id, PlannedWorkout.scheduled_date <= today)
+    )
+    if cycle_id_for_filter is not None:
+        counts_q = counts_q.where(PlannedWorkout.cycle_id == cycle_id_for_filter)
+    row = (await db.execute(counts_q)).one()
+
+    on_plan_pct = (row.done / row.settled) if row.settled else 0.0
+
+    actual_q = (
+        select(func.coalesce(func.sum(CompletedWorkout.distance_m), 0).label("actual_m"))
+        .select_from(PlannedWorkout)
+        .join(Reconciliation, Reconciliation.planned_id == PlannedWorkout.id)
+        .join(CompletedWorkout, CompletedWorkout.id == Reconciliation.completed_id)
+        .join(Cycle, Cycle.id == PlannedWorkout.cycle_id)
+        .where(Cycle.plan_id == plan.id, PlannedWorkout.scheduled_date <= today)
+    )
+    if cycle_id_for_filter is not None:
+        actual_q = actual_q.where(PlannedWorkout.cycle_id == cycle_id_for_filter)
+    actual_m = (await db.execute(actual_q)).scalar_one() or 0
+    actual_mi = (Decimal(str(actual_m)) / _METERS_PER_MILE).quantize(Decimal("0.1"))
+
+    streak_days = await _compute_streak(db, plan.id, cycle_id_for_filter, today)
+
+    next_milestone, peak_week = await _next_milestone(db, plan.id, cycle, today)
+
+    return PlanStatsOut(
+        scope=scope,
+        cycle_id=cycle.id if cycle is not None else None,
+        on_plan_pct=float(on_plan_pct),
+        done_count=row.done,
+        skipped_count=row.skipped,
+        planned_to_date_count=row.total_to_date,
+        planned_mi=Decimal(str(row.planned_mi_total or 0)),
+        actual_mi=actual_mi,
+        streak_days=streak_days,
+        next_milestone=next_milestone,
+        peak_week=peak_week,
+        computed_at=datetime.now(UTC),
+    )
+
+
+def _empty_stats(scope: Literal["cycle", "plan"], today: date) -> PlanStatsOut:
+    return PlanStatsOut(
+        scope=scope,
+        cycle_id=None,
+        on_plan_pct=0.0,
+        done_count=0,
+        skipped_count=0,
+        planned_to_date_count=0,
+        planned_mi=Decimal("0"),
+        actual_mi=Decimal("0"),
+        streak_days=0,
+        next_milestone=None,
+        peak_week=None,
+        computed_at=datetime.now(UTC),
+    )
+
+
+async def _active_cycle(db: AsyncSession, plan_id: UUID, today: date) -> Cycle | None:
+    cycle = (
+        await db.execute(
+            select(Cycle)
+            .where(
+                Cycle.plan_id == plan_id,
+                Cycle.start_date <= today,
+                Cycle.end_date >= today,
+            )
+            .order_by(Cycle.sequence)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if cycle is not None:
+        return cycle
+    return (
+        await db.execute(
+            select(Cycle)
+            .where(Cycle.plan_id == plan_id, Cycle.start_date <= today)
+            .order_by(Cycle.start_date.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _compute_streak(
+    db: AsyncSession,
+    plan_id: UUID,
+    cycle_id: UUID | None,
+    today: date,
+) -> int:
+    """Walk back from today; a day counts if every planned row that day has
+    status in (done, moved). First day with a `skipped` row breaks the streak.
+    A day with no planned rows breaks (gap stops counting)."""
+    q = (
+        select(PlannedWorkout.scheduled_date, PlannedWorkout.status)
+        .join(Cycle, Cycle.id == PlannedWorkout.cycle_id)
+        .where(Cycle.plan_id == plan_id, PlannedWorkout.scheduled_date <= today)
+        .order_by(PlannedWorkout.scheduled_date.desc())
+    )
+    if cycle_id is not None:
+        q = q.where(PlannedWorkout.cycle_id == cycle_id)
+    rows = (await db.execute(q)).all()
+
+    by_day: dict[date, list[WorkoutStatus]] = {}
+    for r in rows:
+        by_day.setdefault(r.scheduled_date, []).append(r.status)
+
+    streak = 0
+    cursor = today
+    while True:
+        statuses = by_day.get(cursor)
+        if statuses is None:
+            break
+        if any(s == WorkoutStatus.skipped for s in statuses):
+            break
+        if all(s in (WorkoutStatus.done, WorkoutStatus.moved) for s in statuses):
+            streak += 1
+            cursor = date.fromordinal(cursor.toordinal() - 1)
+            continue
+        break
+    return streak
+
+
+async def _next_milestone(
+    db: AsyncSession,
+    plan_id: UUID,
+    cycle: Cycle | None,
+    today: date,
+) -> tuple[NextMilestone | None, PeakWeekSummary | None]:
+    if cycle is None:
+        return None, None
+
+    days_to_race = (cycle.race_date - today).days
+    peak_week = None
+    if cycle.peak_week_target is not None:
+        peak_rows = (
+            await db.execute(
+                select(
+                    func.coalesce(func.sum(PlannedWorkout.distance_mi), 0).label("planned_mi"),
+                    func.max(PlannedWorkout.distance_mi)
+                    .filter(PlannedWorkout.type == WorkoutType.long)
+                    .label("long_run_mi"),
+                    func.min(PlannedWorkout.scheduled_date).label("week_start"),
+                ).where(
+                    PlannedWorkout.cycle_id == cycle.id,
+                    PlannedWorkout.week_number == cycle.peak_week_target,
+                )
+            )
+        ).one()
+        peak_planned_mi = Decimal(str(peak_rows.planned_mi or 0))
+        peak_week = PeakWeekSummary(
+            week_number=cycle.peak_week_target,
+            planned_mi=peak_planned_mi,
+            long_run_mi=Decimal(str(peak_rows.long_run_mi))
+            if peak_rows.long_run_mi is not None
+            else None,
+        )
+
+        if days_to_race <= 21:
+            milestone = NextMilestone(
+                kind="race",
+                label=f"{cycle.race_name} {days_to_race}d",
+                date=cycle.race_date,
+            )
+        elif peak_rows.week_start is not None and peak_rows.week_start >= today:
+            long_run_label = (
+                f" - {peak_rows.long_run_mi}mi long" if peak_rows.long_run_mi is not None else ""
+            )
+            milestone = NextMilestone(
+                kind="peak",
+                label=f"WK {cycle.peak_week_target}{long_run_label}",
+                date=peak_rows.week_start,
+            )
+        else:
+            milestone = NextMilestone(
+                kind="race",
+                label=f"{cycle.race_name} {days_to_race}d",
+                date=cycle.race_date,
+            )
+    else:
+        milestone = NextMilestone(
+            kind="race",
+            label=f"{cycle.race_name} {days_to_race}d",
+            date=cycle.race_date,
+        )
+
+    return milestone, peak_week
