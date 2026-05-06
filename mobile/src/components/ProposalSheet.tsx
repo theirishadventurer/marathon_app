@@ -3,6 +3,8 @@ import { forwardRef, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import type { AdapterOption, ApplyChoice, ProposalOut } from '@/api/types';
+import { RetroBorder } from '@/components/retro/RetroBorder';
+import { RetroButton } from '@/components/retro/RetroButton';
 import { colors } from '@/theme/tokens';
 
 interface Props {
@@ -13,11 +15,7 @@ interface Props {
 }
 
 function OptionCard({
-  option,
-  expanded,
-  onToggle,
-  onApply,
-  disabled,
+  option, expanded, onToggle, onApply, disabled,
 }: {
   option: AdapterOption;
   expanded: boolean;
@@ -26,53 +24,34 @@ function OptionCard({
   disabled: boolean;
 }) {
   return (
-    <View
-      style={{
-        backgroundColor: colors.bgCard,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: colors.line,
-        padding: 14,
-        marginBottom: 12,
-      }}
-    >
-      <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700' }}>
-        {option.label}
-      </Text>
-      <Text style={{ color: colors.inkDim, fontSize: 13, marginTop: 4 }}>
-        {option.tradeoff}
-      </Text>
-      <Pressable onPress={onToggle} hitSlop={6}>
-        <Text style={{ color: colors.accentRun, fontSize: 12, marginTop: 8 }}>
-          {expanded ? 'Hide rationale' : 'Why this option'}
+    <RetroBorder style={{ marginBottom: 12 }}>
+      <View style={{ padding: 14 }}>
+        <Text style={{ fontFamily: 'PressStart2P', fontSize: 10, color: colors.ink }}>
+          {option.label.toUpperCase()}
         </Text>
-      </Pressable>
-      {expanded && (
-        <Text style={{ color: colors.ink, fontSize: 13, marginTop: 8, lineHeight: 19 }}>
-          {option.rationale}
+        <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 4 }}>
+          {option.tradeoff}
         </Text>
-      )}
-      <Pressable
-        onPress={onApply}
-        disabled={disabled}
-        style={{
-          backgroundColor: colors.accentRun,
-          borderRadius: 8,
-          paddingVertical: 10,
-          alignItems: 'center',
-          marginTop: 12,
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        <Text style={{ color: colors.bg, fontWeight: '700' }}>Apply</Text>
-      </Pressable>
-    </View>
+        <Pressable onPress={onToggle} hitSlop={6}>
+          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentRun, marginTop: 8 }}>
+            {expanded ? '▾ HIDE' : '▸ WHY THIS'}
+          </Text>
+        </Pressable>
+        {expanded && (
+          <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.ink, marginTop: 8, lineHeight: 20 }}>
+            {option.rationale}
+          </Text>
+        )}
+        <View style={{ marginTop: 12 }}>
+          <RetroButton label="Apply" tone="primary" onPress={onApply} disabled={disabled} />
+        </View>
+      </View>
+    </RetroBorder>
   );
 }
 
 export const ProposalSheet = forwardRef<BottomSheet, Props>(function ProposalSheet(
-  { proposal, submitting, onApply, onCancel },
-  ref,
+  { proposal, submitting, onApply, onCancel }, ref,
 ) {
   const snapPoints = useMemo(() => ['60%', '92%'], []);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -83,28 +62,24 @@ export const ProposalSheet = forwardRef<BottomSheet, Props>(function ProposalShe
       index={-1}
       snapPoints={snapPoints}
       enablePanDownToClose
-      onClose={() => {
-        if (proposal !== null) {
-          void onCancel();
-        }
-      }}
-      backgroundStyle={{ backgroundColor: colors.bgElev }}
+      onClose={() => { if (proposal !== null) void onCancel(); }}
+      backgroundStyle={{ backgroundColor: colors.bgPanel, borderTopWidth: 2, borderColor: colors.line, borderRadius: 0 }}
       handleIndicatorStyle={{ backgroundColor: colors.inkDim }}
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         {proposal === null ? (
           <View style={{ alignItems: 'center', paddingVertical: 24 }}>
             <ActivityIndicator color={colors.accentRun} />
-            <Text style={{ color: colors.inkDim, marginTop: 12 }}>
-              Coach is thinking…
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginTop: 12, letterSpacing: 1 }}>
+              COACH IS THINKING…
             </Text>
           </View>
         ) : (
           <View>
-            <Text style={{ color: colors.inkDim, fontSize: 12, textTransform: 'uppercase' }}>
-              Proposed rebalance
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
+              PROPOSED REBALANCE
             </Text>
-            <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '700', marginTop: 4, marginBottom: 16, lineHeight: 24 }}>
+            <Text style={{ fontFamily: 'VT323', fontSize: 22, color: colors.ink, marginTop: 6, marginBottom: 16, lineHeight: 26 }}>
               {proposal.summary}
             </Text>
 
@@ -119,37 +94,12 @@ export const ProposalSheet = forwardRef<BottomSheet, Props>(function ProposalShe
               />
             ))}
 
-            <Pressable
-              onPress={() => { void onApply('just_move'); }}
-              disabled={submitting}
-              style={{
-                borderColor: colors.line,
-                borderWidth: 1,
-                borderRadius: 10,
-                paddingVertical: 12,
-                alignItems: 'center',
-                marginTop: 4,
-                opacity: submitting ? 0.5 : 1,
-              }}
-            >
-              <Text style={{ color: colors.ink, fontWeight: '600' }}>Just move it</Text>
-              <Text style={{ color: colors.inkDim, fontSize: 12, marginTop: 2 }}>
-                Override the AI; no rebalance
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => { void onCancel(); }}
-              disabled={submitting}
-              style={{
-                paddingVertical: 12,
-                alignItems: 'center',
-                marginTop: 8,
-                opacity: submitting ? 0.5 : 1,
-              }}
-            >
-              <Text style={{ color: colors.accentDanger, fontWeight: '600' }}>Cancel</Text>
-            </Pressable>
+            <View style={{ marginTop: 4 }}>
+              <RetroButton label="Just move it" onPress={() => { void onApply('just_move'); }} disabled={submitting} />
+            </View>
+            <View style={{ marginTop: 8 }}>
+              <RetroButton label="Cancel" tone="danger" onPress={() => { void onCancel(); }} disabled={submitting} />
+            </View>
           </View>
         )}
       </BottomSheetScrollView>
