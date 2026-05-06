@@ -12,22 +12,21 @@ interface Props {
 }
 
 const markdownStyle = {
-  body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
-  heading1: { color: colors.ink, fontSize: 20, fontWeight: '700' as const, marginTop: 12, marginBottom: 8 },
-  heading2: { color: colors.ink, fontSize: 17, fontWeight: '700' as const, marginTop: 12, marginBottom: 6 },
-  heading3: { color: colors.ink, fontSize: 15, fontWeight: '700' as const, marginTop: 10, marginBottom: 4 },
+  body: { color: colors.ink, fontFamily: 'VT323', fontSize: 18, lineHeight: 22 },
+  heading1: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 14, marginTop: 12, marginBottom: 8 },
+  heading2: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 12, marginTop: 12, marginBottom: 6 },
+  heading3: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 10, marginTop: 10, marginBottom: 4 },
   paragraph: { color: colors.ink, marginBottom: 8 },
-  code_inline: { color: colors.accentRun, backgroundColor: colors.bgElev, paddingHorizontal: 4, borderRadius: 4 },
+  code_inline: { color: colors.accentHi, backgroundColor: colors.bgPanelAlt, paddingHorizontal: 4 },
   bullet_list: { marginBottom: 8 },
   list_item: { color: colors.ink },
-  strong: { color: colors.ink, fontWeight: '700' as const },
+  strong: { color: colors.ink, fontFamily: 'VT323', fontWeight: '700' as const },
   em: { color: colors.ink, fontStyle: 'italic' as const },
-  hr: { backgroundColor: colors.line, height: 1, marginVertical: 12 },
+  hr: { backgroundColor: colors.line, height: 2, marginVertical: 12 },
 };
 
 export const WhySheet = forwardRef<BottomSheet, Props>(function WhySheet(
-  { workout, onClose },
-  ref,
+  { workout, onClose }, ref,
 ) {
   const snapPoints = useMemo(() => ['60%', '90%'], []);
   return (
@@ -37,32 +36,34 @@ export const WhySheet = forwardRef<BottomSheet, Props>(function WhySheet(
       snapPoints={snapPoints}
       enablePanDownToClose
       onClose={onClose}
-      backgroundStyle={{ backgroundColor: colors.bgElev }}
+      backgroundStyle={{ backgroundColor: colors.bgPanel, borderTopWidth: 2, borderColor: colors.line, borderRadius: 0 }}
       handleIndicatorStyle={{ backgroundColor: colors.inkDim }}
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         {workout === null ? (
-          <Text style={{ color: colors.inkDim }}>No workout selected.</Text>
+          <Text style={{ fontFamily: 'VT323', fontSize: 18, color: colors.inkDim }}>
+            No workout selected.
+          </Text>
         ) : (
           <View>
-            <Text style={{ color: colors.inkDim, fontSize: 12, textTransform: 'uppercase' }}>
-              Week {workout.week_number} · {workout.type}
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
+              WK {workout.week_number} · {workout.type.toUpperCase()}
             </Text>
-            <Text style={{ color: colors.ink, fontSize: 22, fontWeight: '700', marginTop: 4, marginBottom: 14 }}>
-              {workout.title}
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 14, color: colors.ink, marginTop: 6, marginBottom: 14 }}>
+              {workout.title.toUpperCase()}
             </Text>
             {workout.description_md.trim().length > 0 && (
               <View>
-                <Text style={{ color: colors.inkDim, fontSize: 12, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Prescription
+                <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4 }}>
+                  PRESCRIPTION
                 </Text>
                 <Markdown style={markdownStyle}>{workout.description_md}</Markdown>
               </View>
             )}
             {workout.intent_md.trim().length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={{ color: colors.inkDim, fontSize: 12, textTransform: 'uppercase', marginBottom: 4 }}>
-                  Intent
+                <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 4 }}>
+                  INTENT
                 </Text>
                 <Markdown style={markdownStyle}>{workout.intent_md}</Markdown>
               </View>
