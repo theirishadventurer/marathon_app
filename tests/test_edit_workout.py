@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from sqlalchemy import select
 
-from app.models.workout import PlannedWorkout, WorkoutType
+from app.models.workout import PlannedWorkout, WorkoutStatus, WorkoutType
 from app.schemas.edit import EditWorkoutRequest, RescheduleOriginalRequest
 from app.schemas.plan import PlannedWorkoutOut
 
@@ -84,7 +84,7 @@ async def test_patch_workout_404_for_nonexistent(client, athlete_token):
 async def test_patch_workout_409_for_done(client, athlete_token, seeded_db):
     result = await seeded_db.execute(select(PlannedWorkout).limit(1))
     workout = result.scalar_one()
-    workout.status = "done"
+    workout.status = WorkoutStatus.done
     await seeded_db.commit()
     response = await client.patch(
         f"/workouts/{workout.id}",

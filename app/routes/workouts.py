@@ -126,12 +126,9 @@ async def edit_workout(
     if planned is None:
         raise HTTPException(status_code=404, detail="Workout not found")
     if planned.status in (WorkoutStatus.done, WorkoutStatus.skipped):
-        status_value = (
-            planned.status.value if isinstance(planned.status, WorkoutStatus) else planned.status
-        )
         raise HTTPException(
             status_code=409,
-            detail=f"Cannot edit a {status_value} workout",
+            detail=f"Cannot edit a {planned.status.value} workout",
         )
 
     updates = body.model_dump(exclude_unset=True)
