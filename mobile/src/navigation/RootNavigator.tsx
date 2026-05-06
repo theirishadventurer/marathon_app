@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 
 import { ChatPlaceholderScreen } from '@/screens/ChatPlaceholderScreen';
+import { ProgramScreen } from '@/screens/ProgramScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TodayScreen } from '@/screens/TodayScreen';
 import { WeekScreen } from '@/screens/WeekScreen';
@@ -51,6 +52,7 @@ function MainTabs() {
     >
       <Tabs.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: tabIcon('▣') }} />
       <Tabs.Screen name="Week" component={WeekScreen} options={{ tabBarIcon: tabIcon('▦') }} />
+      <Tabs.Screen name="Program" component={ProgramScreen} options={{ tabBarIcon: tabIcon('▤') }} />
       <Tabs.Screen name="Chat" component={ChatPlaceholderScreen} options={{ tabBarIcon: tabIcon('◇') }} />
       <Tabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: tabIcon('⚙') }} />
     </Tabs.Navigator>
