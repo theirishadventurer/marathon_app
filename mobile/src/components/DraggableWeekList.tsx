@@ -189,19 +189,19 @@ export function DraggableWeekList({
         const isToday = day.date === toIso(new Date());
         return (
           <View key={day.date} className="mb-4">
-            <View className="flex-row items-baseline mb-2 px-1">
-              <Text
-                style={{ color: isToday ? colors.accentRun : colors.ink }}
-                className="text-base font-semibold"
-              >
-                {dayName(date, 'long')}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 }}>
+              {isToday && (
+                <Text style={{ color: colors.accentRun, fontFamily: 'PressStart2P', fontSize: 10, marginRight: 6 }}>▸</Text>
+              )}
+              <Text style={{
+                color: isToday ? colors.accentRun : colors.ink,
+                fontFamily: 'PressStart2P', fontSize: 10, letterSpacing: 1,
+              }}>
+                {dayName(date, 'long').toUpperCase()}
               </Text>
-              <Text className="text-ink-dim text-xs ml-2">
+              <Text style={{ color: colors.inkDim, fontFamily: 'VT323', fontSize: 14, marginLeft: 8 }}>
                 {date.getMonth() + 1}/{date.getDate()}
               </Text>
-              {isToday && (
-                <Text className="text-accent-run text-[10px] uppercase ml-2">Today</Text>
-              )}
             </View>
 
             <DropZone
@@ -211,8 +211,11 @@ export function DraggableWeekList({
               onLayoutMeasure={() => { measureDay(day.date); }}
             >
               {day.workouts.length === 0 ? (
-                <View className="bg-bg-card rounded-xl p-4 border border-line items-center">
-                  <Text className="text-ink-mute text-sm">Rest</Text>
+                <View style={{
+                  backgroundColor: colors.bgPanelAlt,
+                  borderWidth: 2, borderColor: colors.line, padding: 14, alignItems: 'center',
+                }}>
+                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkMute, letterSpacing: 1 }}>REST</Text>
                 </View>
               ) : (
                 day.workouts.map((w) => (
