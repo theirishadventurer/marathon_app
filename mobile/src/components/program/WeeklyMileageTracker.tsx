@@ -16,6 +16,14 @@ interface Props {
 const BAR_COLUMN_WIDTH = 22;
 const CHART_HEIGHT = 120;
 
+function cumulative(weeks: WeekRollup[], key: 'planned_mi' | 'actual_mi'): number[] {
+  let running = 0;
+  return weeks.map((w) => {
+    running += parseFloat(w[key]);
+    return running;
+  });
+}
+
 function maxPlanned(weeks: WeekRollup[]): number {
   return weeks.reduce((m, w) => Math.max(m, parseFloat(w.planned_mi)), 0);
 }
@@ -147,6 +155,50 @@ export function WeeklyMileageTracker({ cycles, defaultCycleId, onWeekPress }: Pr
                 </Pressable>
               );
             })}
+            <View style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: CHART_HEIGHT, pointerEvents: 'none',
+            }}>
+              {(() => {
+                const plannedCum = cumulative(weeks, 'planned_mi');
+                const actualCum = cumulative(weeks, 'actual_mi');
+                const peakCum = Math.max(
+                  plannedCum[plannedCum.length - 1] ?? 0,
+                  actualCum[actualCum.length - 1] ?? 0,
+                  1,
+                );
+                return weeks.map((_, i) => {
+                  if (i === 0) return null;
+                  const prevP = plannedCum[i - 1] ?? 0;
+                  const curP = plannedCum[i] ?? 0;
+                  const prevA = actualCum[i - 1] ?? 0;
+                  const curA = actualCum[i] ?? 0;
+                  const x1 = (i - 1) * BAR_COLUMN_WIDTH + BAR_COLUMN_WIDTH / 2;
+                  const x2 = i * BAR_COLUMN_WIDTH + BAR_COLUMN_WIDTH / 2;
+                  const yPrevP = CHART_HEIGHT - (prevP / peakCum) * CHART_HEIGHT;
+                  const yCurP = CHART_HEIGHT - (curP / peakCum) * CHART_HEIGHT;
+                  const yPrevA = CHART_HEIGHT - (prevA / peakCum) * CHART_HEIGHT;
+                  const yCurA = CHART_HEIGHT - (curA / peakCum) * CHART_HEIGHT;
+                  const segmentLen = x2 - x1;
+                  return (
+                    <View key={`cum-${i}`}>
+                      <View style={{
+                        position: 'absolute',
+                        left: x1, top: Math.min(yPrevP, yCurP),
+                        width: segmentLen, height: Math.max(1, Math.abs(yCurP - yPrevP)),
+                        borderTopWidth: 1, borderTopColor: colors.inkDim,
+                        borderStyle: 'dashed', opacity: 0.6,
+                      }} />
+                      <View style={{
+                        position: 'absolute',
+                        left: x1, top: Math.min(yPrevA, yCurA),
+                        width: segmentLen, height: Math.max(1, Math.abs(yCurA - yPrevA)),
+                        borderTopWidth: 2, borderTopColor: colors.accentCyan,
+                      }} />
+                    </View>
+                  );
+                });
+              })()}
+            </View>
           </View>
         </ScrollView>
       </View>
