@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,6 +112,8 @@ async def seed_plan(
             continue
 
         # Create planned workouts
+        peak_week: int | None = None
+        peak_long_mi: Decimal | None = None
         for w in cycle_data["workouts"]:
             wtype = WorkoutType(w["type"])
             family = family_for_planned(wtype)
@@ -131,6 +134,18 @@ async def seed_plan(
             )
             db.add(pw)
             total_workouts += 1
+
+            # Track peak: week with the longest non-race long run
+            if (
+                wtype == WorkoutType.long
+                and w["distance_mi"] is not None
+                and (peak_long_mi is None or w["distance_mi"] > peak_long_mi)
+            ):
+                peak_long_mi = w["distance_mi"]
+                peak_week = w["week_number"]
+
+        if peak_week is not None and cycle.peak_week_target is None:
+            cycle.peak_week_target = peak_week
 
     await db.commit()
 

@@ -2,6 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+from sqlalchemy import select
+
 
 def test_week_rollup_schema_round_trip():
     from app.schemas.plan import WeekRollup
@@ -87,3 +90,36 @@ def test_plan_stats_out_schema_round_trip():
     dumped = stats.model_dump()
     assert dumped["streak_days"] == 11
     assert dumped["next_milestone"]["kind"] == "peak"
+
+
+@pytest.mark.asyncio
+async def test_build_plan_full_returns_three_cycles_and_week_rollups(seeded_db):
+    from app.models.athlete import Athlete
+    from app.services.plan_aggregator import build_plan_full
+
+    athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
+    plan = await build_plan_full(seeded_db, athlete.id)
+
+    assert plan.plan_name == "Marathon Trilogy 2026-2027"
+    assert len(plan.cycles) == 3
+    p1 = plan.cycles[0]
+    assert p1.sequence == 1
+    assert p1.peak_week_target == 23
+    assert len(p1.weeks) == 28
+    assert p1.weeks[0].planned_count >= 1
+    assert all(w.status in ("done", "partial", "current", "upcoming", "skipped") for w in p1.weeks)
+
+
+@pytest.mark.asyncio
+async def test_build_plan_full_marks_peak_and_race(seeded_db):
+    from app.models.athlete import Athlete
+    from app.services.plan_aggregator import build_plan_full
+
+    athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
+    plan = await build_plan_full(seeded_db, athlete.id)
+    p1 = plan.cycles[0]
+    peak_weeks = [w for w in p1.weeks if w.is_peak]
+    race_weeks = [w for w in p1.weeks if w.has_race]
+    assert len(peak_weeks) == 1
+    assert peak_weeks[0].week_number == 23
+    assert len(race_weeks) >= 1
