@@ -27,7 +27,7 @@ const navTheme = {
 };
 
 const tabIcon = (label: string) => ({ color }: { color: string }) =>
-  <Text style={{ color, fontSize: 11, fontWeight: '600' }}>{label}</Text>;
+  <Text style={{ color, fontSize: 14, fontFamily: 'PressStart2P', textAlign: 'center' }}>{label}</Text>;
 
 function MainTabs() {
   return (
@@ -36,12 +36,22 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: colors.accentRun,
         tabBarInactiveTintColor: colors.inkDim,
-        tabBarStyle: { backgroundColor: colors.bgElev, borderTopColor: colors.line },
+        tabBarStyle: {
+          backgroundColor: colors.bgPanel,
+          borderTopWidth: 2,
+          borderTopColor: colors.line,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontFamily: 'PressStart2P',
+          fontSize: 8,
+          letterSpacing: 1,
+        },
       }}
     >
-      <Tabs.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: tabIcon('●') }} />
+      <Tabs.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: tabIcon('▣') }} />
       <Tabs.Screen name="Week" component={WeekScreen} options={{ tabBarIcon: tabIcon('▦') }} />
-      <Tabs.Screen name="Chat" component={ChatPlaceholderScreen} options={{ tabBarIcon: tabIcon('◎') }} />
+      <Tabs.Screen name="Chat" component={ChatPlaceholderScreen} options={{ tabBarIcon: tabIcon('◇') }} />
       <Tabs.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: tabIcon('⚙') }} />
     </Tabs.Navigator>
   );
