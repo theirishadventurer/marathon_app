@@ -19,6 +19,16 @@ export interface TokenResponse {
 export type WorkoutStatus = 'planned' | 'moved' | 'skipped' | 'done';
 export type WorkoutFamily = 'running' | 'strength' | 'other';
 
+export interface PlannedWorkoutSnapshot {
+  type: string;
+  family: string;
+  distance_mi: string | null;
+  duration_min: number | null;
+  title: string;
+  target_pace: string | null;
+  target_hr_zone: string | null;
+}
+
 export interface PlannedWorkoutOut {
   id: UUID;
   cycle_id: UUID;
@@ -35,6 +45,7 @@ export interface PlannedWorkoutOut {
   title: string;
   description_md: string;
   intent_md: string;
+  original_snapshot: PlannedWorkoutSnapshot | null;
 }
 
 export interface CompletedWorkoutOut {
@@ -165,4 +176,21 @@ export interface SyncReportOut {
   synced_activities: number;
   synced_metrics: number;
   errors: string[];
+}
+
+// edit / reschedule-original
+export interface EditWorkoutRequest {
+  type?: string;
+  distance_mi?: number | null;
+  duration_min?: number | null;
+  title?: string;
+}
+
+export interface RescheduleOriginalRequest {
+  new_date: IsoDate;
+}
+
+export interface RescheduleOriginalResponse {
+  new_workout_id: UUID;
+  proposal: ProposalOut;
 }
