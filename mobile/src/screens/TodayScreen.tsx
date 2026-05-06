@@ -7,17 +7,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanCurrent, usePlanToday } from '@/api/hooks/usePlan';
 import type { PlannedWorkoutOut } from '@/api/types';
+import { RetroBorder } from '@/components/retro/RetroBorder';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { WhySheet } from '@/components/WhySheet';
 import { fromIso } from '@/lib/dates';
 import type { RootStackParamList } from '@/navigation/types';
+import { colors } from '@/theme/tokens';
 
 function formatHeaderDate(iso: string): string {
-  return fromIso(iso).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
+  const d = fromIso(iso);
+  return `▸ TODAY  ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 export function TodayScreen() {
@@ -43,47 +42,61 @@ export function TodayScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
             refreshing={today.isFetching || plan.isFetching}
             onRefresh={() => { void onRefresh(); }}
-            tintColor="#a1a1aa"
+            tintColor={colors.inkDim}
           />
         }
       >
-        <Text className="text-ink-dim text-xs uppercase tracking-wide">
-          {today.data !== undefined ? formatHeaderDate(today.data.date) : 'Today'}
+        <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
+          {today.data !== undefined ? formatHeaderDate(today.data.date) : '▸ TODAY'}
         </Text>
-        <Text className="text-ink text-3xl font-bold mt-1 mb-1">What&apos;s on tap</Text>
+        <Text style={{ fontFamily: 'PressStart2P', fontSize: 14, color: colors.ink, letterSpacing: 1, marginTop: 6 }}>
+          WHAT&apos;S ON TAP
+        </Text>
         {plan.data?.cycle_progress !== null && plan.data?.cycle_progress !== undefined && (
-          <Text className="text-ink-dim text-sm mb-4">
+          <Text style={{ fontFamily: 'VT323', fontSize: 14, color: colors.inkDim, marginTop: 4, marginBottom: 16 }}>
             Week {plan.data.cycle_progress.week} of {plan.data.cycle_progress.total_weeks} ·{' '}
             {plan.data.cycle_progress.days_to_race} days to {plan.data.active_cycle?.race_name ?? 'race'}
           </Text>
         )}
 
-        <View className="bg-bg-card rounded-xl p-4 mb-6 border border-line">
-          <Text className="text-ink-dim text-xs uppercase mb-2">Coach brief</Text>
-          <Text className="text-ink-dim italic">Coach brief — wired in session 3</Text>
-        </View>
+        <RetroBorder style={{ marginBottom: 24 }}>
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 6 }}>
+              COACH BRIEF
+            </Text>
+            <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, fontStyle: 'italic' }}>
+              Coach brief — wired in session 3
+            </Text>
+          </View>
+        </RetroBorder>
 
         {today.isLoading && (
-          <View className="items-center py-10">
-            <ActivityIndicator color="#34d399" />
+          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+            <ActivityIndicator color={colors.accentRun} />
           </View>
         )}
 
         {today.isError && (
-          <Text className="text-accent-danger">Could not load today&apos;s plan.</Text>
+          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1 }}>
+            COULD NOT LOAD TODAY
+          </Text>
         )}
 
         {today.data !== undefined && today.data.workouts.length === 0 && !today.isLoading && (
-          <View className="bg-bg-card rounded-xl p-6 items-center border border-line">
-            <Text className="text-ink-dim">Rest day. No work scheduled.</Text>
-          </View>
+          <RetroBorder>
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
+                REST DAY — NO WORK SCHEDULED
+              </Text>
+            </View>
+          </RetroBorder>
         )}
 
         {today.data?.workouts.map((w) => (
@@ -95,12 +108,19 @@ export function TodayScreen() {
           />
         ))}
 
-        <Text className="text-ink-dim text-xs uppercase mt-8 mb-3">Recent runs</Text>
-        <View className="bg-bg-card rounded-xl p-4 border border-line">
-          <Text className="text-ink-dim text-sm">
-            Recent runs strip lands once `/workouts/completed/recent` ships.
-          </Text>
-        </View>
+        <Text style={{
+          fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+          marginTop: 32, marginBottom: 12,
+        }}>
+          RECENT QUESTS
+        </Text>
+        <RetroBorder>
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontFamily: 'VT323', fontSize: 14, color: colors.inkDim }}>
+              Recent runs strip lands once `/workouts/completed/recent` ships.
+            </Text>
+          </View>
+        </RetroBorder>
       </ScrollView>
 
       <WhySheet ref={sheetRef} workout={whyWorkout} onClose={closeWhy} />
