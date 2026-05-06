@@ -146,3 +146,35 @@ async def test_plan_full_endpoint_happy_path(client, seeded_auth_headers):
 async def test_plan_full_endpoint_requires_auth(client):
     response = await client.get("/plan/full")
     assert response.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_plan_full_cache_invalidated_on_workout_edit(
+    client,
+    seeded_auth_headers,
+    seeded_db,
+):
+    """After PATCH /workouts/{id}, /plan/full must reflect the changed type."""
+    from sqlalchemy import select
+
+    from app.models.workout import PlannedWorkout
+
+    workout = (
+        await seeded_db.execute(
+            select(PlannedWorkout).where(PlannedWorkout.type == "strength_a").limit(1)
+        )
+    ).scalar_one()
+    wid = str(workout.id)
+
+    r1 = await client.get("/plan/full", headers=seeded_auth_headers)
+    assert r1.status_code == 200
+
+    edit = await client.patch(
+        f"/workouts/{wid}",
+        json={"type": "easy"},
+        headers=seeded_auth_headers,
+    )
+    assert edit.status_code == 200, edit.text
+
+    r2 = await client.get("/plan/full", headers=seeded_auth_headers)
+    assert r2.status_code == 200

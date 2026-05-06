@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -27,10 +28,26 @@ from app.schemas.plan import (
 
 _METERS_PER_MILE = Decimal("1609.344")
 
+_PLAN_FULL_CACHE: dict[UUID, tuple[float, PlanFullOut]] = {}
+_PLAN_STATS_CACHE: dict[tuple[UUID, str], tuple[float, PlanStatsOut]] = {}
+_CACHE_TTL_S = 60.0
+
+
+def invalidate_plan_cache(athlete_id: UUID) -> None:
+    """Bust both caches for an athlete after any plan-mutating action."""
+    _PLAN_FULL_CACHE.pop(athlete_id, None)
+    keys_to_drop = [k for k in _PLAN_STATS_CACHE if k[0] == athlete_id]
+    for k in keys_to_drop:
+        _PLAN_STATS_CACHE.pop(k, None)
+
 
 async def build_plan_full(db: AsyncSession, athlete_id: UUID) -> PlanFullOut:
     """One indexed query for week rollups + a separate reconciled-actuals
     join, returned as a plan -> cycles -> weeks tree."""
+    cached = _PLAN_FULL_CACHE.get(athlete_id)
+    now = time.monotonic()
+    if cached is not None and now - cached[0] < _CACHE_TTL_S:
+        return cached[1]
 
     plan = (
         await db.execute(
@@ -157,13 +174,15 @@ async def build_plan_full(db: AsyncSession, athlete_id: UUID) -> PlanFullOut:
             )
         )
 
-    return PlanFullOut(
+    result = PlanFullOut(
         plan_name=plan.name,
         plan_id=plan.id,
         start_date=plan.start_date,
         end_date=plan.end_date,
         cycles=cycles_full,
     )
+    _PLAN_FULL_CACHE[athlete_id] = (time.monotonic(), result)
+    return result
 
 
 async def _race_planned_id_by_cycle(db: AsyncSession, plan_id: UUID) -> dict[UUID, UUID]:
@@ -212,6 +231,12 @@ async def build_plan_stats(
     scope: Literal["cycle", "plan"] = "cycle",
 ) -> PlanStatsOut:
     """Compute KPIs for the active cycle (default) or whole plan."""
+    cache_key = (athlete_id, scope)
+    cached = _PLAN_STATS_CACHE.get(cache_key)
+    now = time.monotonic()
+    if cached is not None and now - cached[0] < _CACHE_TTL_S:
+        return cached[1]
+
     plan = (
         await db.execute(
             select(Plan).where(Plan.athlete_id == athlete_id, Plan.is_active.is_(True)).limit(1)
@@ -225,7 +250,9 @@ async def build_plan_stats(
     if scope == "cycle":
         cycle = await _active_cycle(db, plan.id, today)
         if cycle is None:
-            return _empty_stats(scope, today)
+            result = _empty_stats(scope, today)
+            _PLAN_STATS_CACHE[cache_key] = (time.monotonic(), result)
+            return result
         cycle_id_for_filter: UUID | None = cycle.id
     else:
         cycle_id_for_filter = None
@@ -271,7 +298,7 @@ async def build_plan_stats(
 
     next_milestone, peak_week = await _next_milestone(db, plan.id, cycle, today)
 
-    return PlanStatsOut(
+    result = PlanStatsOut(
         scope=scope,
         cycle_id=cycle.id if cycle is not None else None,
         on_plan_pct=float(on_plan_pct),
@@ -285,6 +312,8 @@ async def build_plan_stats(
         peak_week=peak_week,
         computed_at=datetime.now(UTC),
     )
+    _PLAN_STATS_CACHE[cache_key] = (time.monotonic(), result)
+    return result
 
 
 def _empty_stats(scope: Literal["cycle", "plan"], today: date) -> PlanStatsOut:

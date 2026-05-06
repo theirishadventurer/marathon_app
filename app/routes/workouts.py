@@ -35,6 +35,7 @@ from app.schemas.workout import (
     WorkoutDetailOut,
 )
 from app.services.agents.plan_adapter import propose_rebalance
+from app.services.plan_aggregator import invalidate_plan_cache
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -94,6 +95,7 @@ async def skip_workout(
 
     planned.status = WorkoutStatus.skipped
     await db.commit()
+    invalidate_plan_cache(athlete.id)
     return {"ok": True}
 
 
@@ -162,6 +164,7 @@ async def edit_workout(
 
     await db.commit()
     await db.refresh(planned)
+    invalidate_plan_cache(athlete.id)
     return planned
 
 
@@ -224,6 +227,7 @@ async def apply_move(
         if proposal.get("created_by") == "reschedule_original":
             await db.delete(planned)
         await db.commit()
+        invalidate_plan_cache(athlete.id)
         return {"ok": True}
 
     # For just_move, option_a, option_b: move the primary workout
@@ -236,6 +240,7 @@ async def apply_move(
         proposal["applied_choice"] = "just_move"
         flag_modified(msg, "proposal_state_json")
         await db.commit()
+        invalidate_plan_cache(athlete.id)
         return {"ok": True}
 
     if choice not in ("option_a", "option_b"):
@@ -292,6 +297,7 @@ async def apply_move(
     proposal["applied_choice"] = choice
     flag_modified(msg, "proposal_state_json")
     await db.commit()
+    invalidate_plan_cache(athlete.id)
     return {"ok": True}
 
 
@@ -383,4 +389,5 @@ async def reschedule_original(
         )
 
     await db.commit()
+    invalidate_plan_cache(athlete.id)
     return RescheduleOriginalResponse(new_workout_id=str(new_workout.id), proposal=proposal)
