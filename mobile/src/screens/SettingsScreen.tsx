@@ -70,7 +70,7 @@ function GarminReauth({ onDone }: { onDone: () => void }) {
           RECONNECT GARMIN
         </Text>
         <View style={{ marginBottom: 8 }}>
-          <RetroBorder background={colors.bg} noShadow>
+          <RetroBorder background={colors.bg}>
             <TextInput
               value={email}
               onChangeText={setEmail}
@@ -84,7 +84,7 @@ function GarminReauth({ onDone }: { onDone: () => void }) {
           </RetroBorder>
         </View>
         <View style={{ marginBottom: 12 }}>
-          <RetroBorder background={colors.bg} noShadow>
+          <RetroBorder background={colors.bg}>
             <TextInput
               value={password}
               onChangeText={setPassword}

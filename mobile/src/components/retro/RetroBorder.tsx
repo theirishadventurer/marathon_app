@@ -2,25 +2,29 @@ import type { PropsWithChildren } from 'react';
 import { View, type ViewStyle } from 'react-native';
 
 import { colors } from '@/theme/tokens';
-import { nesBorder, nesShadow } from '@/theme/retro';
+import { nesShadow, softBorder } from '@/theme/retro';
 
 interface Props {
   background?: string;
-  noShadow?: boolean;
+  /** opt back into the legacy hard offset shadow for one-off surfaces */
+  legacyShadow?: boolean;
+  /** custom corner radius; default 6 */
+  radius?: number;
   style?: ViewStyle;
 }
 
 export function RetroBorder({
   children,
   background = colors.bgPanel,
-  noShadow = false,
+  legacyShadow = false,
+  radius = 6,
   style,
 }: PropsWithChildren<Props>) {
   return (
     <View
       style={[
-        nesBorder(),
-        noShadow ? null : nesShadow(),
+        softBorder(1, radius),
+        legacyShadow ? nesShadow() : null,
         { backgroundColor: background },
         style,
       ]}
