@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -14,8 +15,18 @@ from app.models.agent import AgentMessage
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
-from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutStatus
-from app.schemas.edit import EditWorkoutRequest
+from app.models.workout import (
+    CompletedWorkout,
+    PlannedWorkout,
+    WorkoutFamily,
+    WorkoutStatus,
+    WorkoutType,
+)
+from app.schemas.edit import (
+    EditWorkoutRequest,
+    RescheduleOriginalRequest,
+    RescheduleOriginalResponse,
+)
 from app.schemas.move import ApplyMoveRequest, MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
@@ -280,3 +291,64 @@ async def apply_move(
     flag_modified(msg, "proposal_state_json")
     await db.commit()
     return {"ok": True}
+
+
+@router.post("/{workout_id}/reschedule-original", response_model=RescheduleOriginalResponse)
+async def reschedule_original(
+    workout_id: uuid.UUID,
+    body: RescheduleOriginalRequest,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(PlannedWorkout)
+        .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+        .join(Plan, Cycle.plan_id == Plan.id)
+        .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+    )
+    parent = result.scalar_one_or_none()
+    if parent is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    snap = parent.original_snapshot_json
+    if snap is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Workout has not been edited; nothing to reschedule",
+        )
+
+    # Verify new_date sits inside the parent's cycle
+    cycle = (await db.execute(select(Cycle).where(Cycle.id == parent.cycle_id))).scalar_one()
+    if not (cycle.start_date <= body.new_date <= cycle.end_date):
+        raise HTTPException(status_code=400, detail="new_date outside parent cycle")
+
+    decimal_distance = (
+        Decimal(snap["distance_mi"]) if snap.get("distance_mi") is not None else None
+    )
+    new_workout = PlannedWorkout(
+        cycle_id=parent.cycle_id,
+        scheduled_date=body.new_date,
+        original_date=body.new_date,
+        week_number=parent.week_number,
+        type=WorkoutType(snap["type"]),
+        family=WorkoutFamily(snap["family"]),
+        status=WorkoutStatus.planned,
+        duration_min=snap.get("duration_min"),
+        distance_mi=decimal_distance,
+        target_pace=snap.get("target_pace"),
+        target_hr_zone=snap.get("target_hr_zone"),
+        title=snap["title"],
+        description_md=parent.description_md,
+        intent_md=parent.intent_md,
+    )
+    db.add(new_workout)
+    await db.flush()
+
+    proposal = await propose_rebalance(
+        db,
+        athlete.id,
+        new_workout.id,
+        body.new_date,
+        created_by="reschedule_original",
+    )
+    await db.commit()
+    return RescheduleOriginalResponse(new_workout_id=str(new_workout.id), proposal=proposal)
