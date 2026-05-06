@@ -15,10 +15,12 @@ from app.schemas.plan import (
     CycleProgress,
     DayWorkouts,
     PlanCurrentOut,
+    PlanFullOut,
     PlannedWorkoutOut,
     TodayOut,
     WeekOut,
 )
+from app.services.plan_aggregator import build_plan_full
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -147,3 +149,11 @@ async def plan_week(
         days.append(DayWorkouts(date=d, workouts=day_workouts))
 
     return WeekOut(week_start=week_start, days=days)
+
+
+@router.get("/full", response_model=PlanFullOut)
+async def plan_full(
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    return await build_plan_full(db, athlete.id)
