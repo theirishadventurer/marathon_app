@@ -11,6 +11,28 @@
 - Keep files under 500 lines
 - Validate input at system boundaries
 
+## Stack-Specific Gotchas (learned the hard way)
+
+**Backend (FastAPI + Pydantic V2 + SQLAlchemy async + Alembic):**
+- Use `Field(validation_alias=X)` (not `Field(alias=X)`) when the ORM column name differs from the desired JSON output key — `alias=` flips the OUTPUT to the alias when FastAPI's `response_model` serializes.
+- Native enum columns + shared sessions in tests: a raw string set via fixture comes back as a raw string (not coerced) when the route reads from the same session. Use `WorkoutStatus.done` not `"done"` in test fixtures.
+- Alembic autogenerate against a drifted dev DB will try to recreate every table. If `alembic_version` is at head but tables are missing, run `alembic stamp base && alembic upgrade head` before autogenerating.
+- `docker compose down` wipes the Postgres named volume on Windows/WSL — re-run `alembic upgrade head` + `python -m app.seed.load_plan` after every restart.
+- Tests run in container: `docker compose exec -T api pytest` (not host pytest — deps live in the container).
+
+**Mobile (Expo SDK 54 + RN 0.81 + TS strict + NativeWind v4):**
+- React 19 + TS 5.9: do NOT annotate `: JSX.Element` on component returns; let TypeScript infer.
+- `expo-secure-store` throws on web — wrap with `Platform.OS === 'web'` fallback to `localStorage`.
+- `react-native-reanimated` has no Expo config plugin — DON'T add it to `app.json` plugins. The babel plugin is enough.
+- `react-native@0.81` `Easing` lacks `.steps()` — use `Easing.steps` from `react-native-reanimated` instead.
+- Validation gate per task: `cd mobile && npx tsc --noEmit`. No jest infra in this project yet.
+- "Append to file" patterns from plans can violate ruff E402 — always hoist imports to the top.
+
+**Workflow:**
+- Spec → plan → subagent-driven implementation. Specs in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`.
+- Per-branch session logs auto-written to `docs/session-logs/` by `.claude/helpers/session-log.mjs` on SessionEnd.
+- Notion sync is Claude-side via `/update-notion` skill — run at session close-out, not from a hook.
+
 ## Agent Comms (SendMessage-First Coordination)
 
 Named agents coordinate via `SendMessage`, not polling or shared state.
