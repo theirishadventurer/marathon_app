@@ -47,4 +47,6 @@ export const familyColor: Record<WorkoutFamily, string> = {
 export const fonts = {
   pixel: 'PressStart2P',
   body: 'VT323',
+  mono: 'JetBrainsMono',
+  monoBold: 'JetBrainsMono-Bold',
 } as const;

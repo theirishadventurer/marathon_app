@@ -40,6 +40,8 @@ export default function App() {
   const [loaded] = useFonts({
     PressStart2P: require('./assets/fonts/PressStart2P-Regular.ttf'),
     VT323: require('./assets/fonts/VT323-Regular.ttf'),
+    JetBrainsMono: require('./assets/fonts/JetBrainsMono-Regular.ttf'),
+    'JetBrainsMono-Bold': require('./assets/fonts/JetBrainsMono-Bold.ttf'),
   });
 
   useEffect(() => {
