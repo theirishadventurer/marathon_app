@@ -256,3 +256,18 @@ export interface PlanStatsOut {
   peak_week: PeakWeekSummary | null;
   computed_at: IsoDateTime;
 }
+
+// Feat A — mark complete
+export interface LogCompletedRequest {
+  duration_min: number;
+  distance_mi?: number | null;
+  avg_pace_str?: string;   // "mm:ss" — backend converts
+  avg_hr?: number;
+  notes?: string;
+}
+
+export interface LogCompletedResponse {
+  planned: PlannedWorkoutOut;
+  completed: CompletedWorkoutOut;
+  reconciliation: ReconciliationOut;
+}
