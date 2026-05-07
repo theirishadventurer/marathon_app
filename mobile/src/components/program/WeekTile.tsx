@@ -1,7 +1,7 @@
 import { Pressable, Text } from 'react-native';
 
 import type { WeekRollup } from '@/api/types';
-import { colors, radius } from '@/theme/tokens';
+import { colors, fonts, radius } from '@/theme/tokens';
 import { softBorder } from '@/theme/retro';
 
 interface Props {
@@ -64,14 +64,14 @@ export function WeekTile({ week, onPress }: Props) {
       ]}
     >
       <Text style={{
-        fontFamily: 'PressStart2P', fontSize: 8, color: ink, letterSpacing: 1,
+        fontFamily: fonts.pixel, fontSize: 8, color: ink, letterSpacing: 1,
       }}>
         WK {String(week.week_number).padStart(2, '0')}
         {week.is_peak && ' [PEAK]'}
         {week.status === 'current' && ' [NOW]'}
       </Text>
       <Text style={{
-        fontFamily: 'VT323', fontSize: 14, color: ink, marginTop: 2,
+        fontFamily: fonts.mono, fontSize: 13, color: ink, marginTop: 2,
       }}>
         {formatMileageGlyph(week)}
       </Text>
