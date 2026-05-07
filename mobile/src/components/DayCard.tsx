@@ -8,10 +8,9 @@ import { colors, fonts } from '@/theme/tokens';
 interface Props {
   day: DayWorkouts;
   onWorkoutPress?: (w: PlannedWorkoutOut) => void;
-  onWorkoutWhy?: (w: PlannedWorkoutOut) => void;
 }
 
-export function DayCard({ day, onWorkoutPress, onWorkoutWhy }: Props) {
+export function DayCard({ day, onWorkoutPress }: Props) {
   const date = fromIso(day.date);
   const isToday = day.date === toIso(new Date());
   const dayLabel = dayName(date, 'long');
@@ -37,7 +36,7 @@ export function DayCard({ day, onWorkoutPress, onWorkoutWhy }: Props) {
       {day.workouts.length === 0 ? (
         <View style={{
           backgroundColor: colors.bgPanelAlt,
-          borderWidth: 2, borderColor: colors.line, padding: 14, alignItems: 'center',
+          borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 14, alignItems: 'center',
         }}>
           <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkMute }}>Rest day</Text>
         </View>
@@ -46,9 +45,7 @@ export function DayCard({ day, onWorkoutPress, onWorkoutWhy }: Props) {
           <WorkoutCard
             key={w.id}
             workout={w}
-            compact
             onPress={onWorkoutPress !== undefined ? () => { onWorkoutPress(w); } : undefined}
-            onWhy={onWorkoutWhy !== undefined ? () => { onWorkoutWhy(w); } : undefined}
           />
         ))
       )}
