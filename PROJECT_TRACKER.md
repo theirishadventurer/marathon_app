@@ -7,10 +7,45 @@
 | Session 1 — Backend foundation + Garmin sync | ✅ Done | merged | JWT auth, plan parser, reconciler, Garmin service |
 | Session 2 — Mobile app + drag-to-move + Plan Adapter | ✅ Done | `session-2/backend-move-endpoints` | Backend move endpoints + Expo TS scaffold + drag-to-move |
 | Session 2.5 — Workout edit + NES retro polish | ✅ Done | `session-2/backend-move-endpoints` | In-place workout edit, displaced-original flow, full NES restyle |
-| Session 2.6 — UX polish + Program tab + Weekly Mileage Tracker | ✅ Done | `session-2/backend-move-endpoints` | Smoother-NES polish (rounded soft borders, phosphor green + cyan, no offset shadow), 4th tab with 3-lane world map + cycle-scoped mileage chart |
+| Session 2.6 — UX polish + Program tab + Weekly Mileage Tracker | ✅ Done | `session-2/backend-move-endpoints` | Smoother-NES polish, Program tab with 3-lane world map + cycle-scoped mileage chart |
+| Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish | ✅ Done | `session-2/backend-move-endpoints` | Four parallel features: log-completed flow, recent-runs strip + computed coach brief on Today, start-date reseed with dry_run preview + plan_history audit, typography sweep retiring PressStart2P from content sizes |
 | Session 3 — Daily Coach, Run Analyst, free-form chat | ⏳ Backlog | — | See `SESSION_3.md` |
 
 ## Sprint History
+
+### Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish (2026-05-07)
+
+**Goal:** Four coordinated features in one sprint addressing user feedback after Session 2.6 demo: (A) manual mark-complete with workout-data dialog, (B) recent runs strip + computed coach brief on Today, (C) program start-date picker with auto-reseed, (D) typography polish toward staycation-crisp by retiring PressStart2P from content sizes.
+
+**Status:** ✅ Complete. ~50 plan tasks across 6 phases shipped, ~50 commits, 104/104 backend tests green, mobile typecheck clean.
+
+**Backend deliverables:**
+- `app/services/cache_invalidation.py` — `invalidate_for_athlete(athlete_id)` umbrella that fans out to plan_full, plan_stats, recent_completed, coach_brief caches
+- `garmin_activity_id` migration: nullable so manual logs can persist without a Garmin ID
+- `plan_history` audit ledger table for tracking start-date reseeds
+- `POST /workouts/{id}/log-completed` — creates `CompletedWorkout` + `Reconciliation`, sets planned status to done, derives pace from distance/duration if not supplied
+- `GET /workouts/completed/recent?limit=N` — last N completions, 60s cache, busted on mutations
+- `app/services/coach_brief.py` — heuristic composer (no LLM): today's prescription + yesterday recap + adherence band + days-to-race; ≤280 chars
+- `coach_brief` field populated on `/plan/today` (replaces null placeholder)
+- `app/seed/plan_parser.py` parametrized with `cycle_one_start_date` — drops earliest template weeks when cycle is shortened
+- `app/services/plan_reseed.py` — `compute_reseed_impact` (read-only preview) + `apply_reseed` (delete incomplete planned, re-emit fresh, discard pending proposals, write plan_history)
+- `POST /plan/start-date?dry_run=<bool>` — preview impact OR commit reseed
+
+**Mobile deliverables:**
+- JetBrains Mono Regular + Bold loaded via expo-font; new `fonts.mono` / `fonts.monoBold` tokens
+- Typography sweep across 17 files: PressStart2P retired from content sizes (titles → monoBold, labels → mono); kept only on brand title, tab labels, badges, primary CTA, and data-table sub-headers
+- New components: `LogCompletedSheet` (mark-done form + Garmin sync link), `RecentRunsStrip` + `RecentRunSheet`, `StartDateSheet` (with live dry_run impact preview)
+- New hooks: `useLogCompleted`, `useSync`, `useRecentCompleted`, `useResetStartDatePreview`, `useResetStartDateApply`, `useLogFlow`
+- WorkoutDetail: MARK DONE button (hidden for rest workouts and done/skipped status)
+- Settings: RESET START DATE button under Plan card
+- TodayScreen consolidated PR: SYNC pill in header, RecentRunsStrip replaces placeholder, live coach brief replaces placeholder, full typography sweep applied
+
+**Spec:** `docs/superpowers/specs/2026-05-07-feat-{a,b,c,d}-*.md`, `2026-05-07-session-2.7-cross-cutting-review.md`
+**Plan:** `docs/superpowers/plans/2026-05-07-session-2.7-feats-abcd.md`
+**Decisions:** `docs/superpowers/plans/2026-05-07-session-2.7-decisions.md`
+**Phase 0 user decisions:** No `abandoned` status (reseed semantics chosen over delta-shift); no `MIN_WEEKS_TO_RACE` refusal; `fonts.mono` / `fonts.monoBold` token names.
+
+
 
 ### Session 2.6 — UX Polish + Program Tab + Weekly Mileage Tracker (2026-05-06)
 

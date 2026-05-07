@@ -1,13 +1,13 @@
 # Project Memory
 
-## Current Status (2026-05-06, Session 2.6)
+## Current Status (2026-05-07, Session 2.7)
 
-**Branch:** `session-2/backend-move-endpoints` (~60 commits ahead of master across Sessions 2 / 2.5 / 2.6)
+**Branch:** `session-2/backend-move-endpoints` (~110 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7)
 
 **State:**
-- Backend: 61/61 tests pass, ruff clean. Endpoints: auth, plan/today, plan/week, plan/current, **plan/full**, **plan/stats**, workouts CRUD + move/apply-move/reschedule-original/skip, garmin reauth/status/sync, metrics/recent.
-- Mobile: smoother-NES restyle (rounded soft borders, phosphor green + cyan accent, no offset shadows), edit feature + Program tab + Weekly Mileage Tracker all wired end-to-end. Typecheck clean.
-- DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`. Seeder now sets `Cycle.peak_week_target` per cycle from the longest non-race long run.
+- Backend: 104/104 tests pass, ruff clean. Endpoints: auth, plan/today/week/current/full/stats/start-date, workouts CRUD + move/apply-move/reschedule-original/skip/log-completed, workouts/completed/recent, garmin reauth/status/sync, metrics/recent.
+- Mobile: JetBrains Mono Bold/Regular for content + PressStart2P only for badges/brand/tabs. Mark-Done flow on WorkoutDetail. Reset start-date flow on Settings. Recent runs strip + computed coach brief on Today. Typecheck clean.
+- DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`. `plan_history` table records reseed events.
 - Dev: Docker Desktop on Windows/WSL2; volume gets wiped on `docker compose down` so re-migrate + re-seed after each cycle.
 
 **Open:**
@@ -31,6 +31,14 @@
 - **CORS for web demo:** `expo start --web` runs on a different origin than the FastAPI backend. Permissive `CORSMiddleware(allow_origins=["*"])` is fine for local dev.
 - **JSX namespace:** with React 19 + TS 5.9, don't annotate `: JSX.Element` on component returns — it errors. Let TS infer.
 - **NativeWind v4 + Tailwind aliases:** keep both `colors.bgCard` (legacy alias) and `colors.bgPanel` (new) when migrating palette tokens — avoids breaking existing className consumers mid-refactor.
+
+### Backend / Service patterns
+- **Cache umbrella `invalidate_for_athlete(athlete_id)`** in `app/services/cache_invalidation.py` is the single bust point. Every mutation handler calls it. Per-route caches (plan_full, plan_stats, recent_completed, coach_brief) register their `_clear_*` helpers via lazy import to avoid circular deps.
+- **Reseed > delta-shift for start-date changes.** Per athlete preference: when reseeding, KEEP completed/skipped within the new range, DELETE incomplete planned (including user edits — accepted tradeoff), re-emit fresh from parser. Audit captured in `plan_history` table.
+- **`plan_parser` accepts `cycle_one_start_date` override.** When set, drops earliest template weeks to fit the shortened cycle. Race date stays anchored.
+- **`POST /plan/start-date?dry_run=true`** for preview before commit. The mobile sheet uses this to show impact (planned dropped, completed kept, proposals discarded) before the user confirms.
+- **Manual `POST /workouts/{id}/log-completed`** writes a `CompletedWorkout` with `garmin_activity_id=NULL` (column is nullable now), match_confidence 1.0. Reconciler is unchanged — it only matches against `planned`/`moved`, so a manually-logged `done` row is invisible to it (Garmin syncs that arrive later are recorded as bonus, no double-match).
+- **Coach brief is heuristic, not LLM.** `app/services/coach_brief.py` composes 1-3 sentences from today's prescription + yesterday's completion + last-5-days adherence + days-to-race. ≤280 chars. Returns `None` only when there's nothing useful to say.
 
 ### Mobile / Navigation
 - **Composite navigation prop typing.** When a tab screen needs to push onto the root stack (e.g., Program → WorkoutDetail), use `CompositeNavigationProp<BottomTabNavigationProp<TabParamList, '...'>, NativeStackNavigationProp<RootStackParamList>>` — without this you can't call both `navigate('Tabs', { screen: 'Week', params })` and `navigate('WorkoutDetail', { workoutId })` from the same screen.
