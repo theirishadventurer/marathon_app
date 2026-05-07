@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { CycleFull, WeekRollup } from '@/api/types';
 import { RetroBorder } from '@/components/retro/RetroBorder';
-import { colors, radius } from '@/theme/tokens';
+import { colors, fonts, radius } from '@/theme/tokens';
 
 interface Props {
   cycles: CycleFull[];
@@ -89,7 +89,7 @@ export function WeeklyMileageTracker({ cycles, defaultCycleId, onWeekPress }: Pr
                   }}
                 >
                   <Text style={{
-                    fontFamily: 'PressStart2P', fontSize: 8,
+                    fontFamily: fonts.pixel, fontSize: 8,
                     color: selected ? colors.bg : colors.ink, letterSpacing: 1,
                   }}>
                     P{c.sequence}
@@ -100,15 +100,15 @@ export function WeeklyMileageTracker({ cycles, defaultCycleId, onWeekPress }: Pr
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-          <Text style={{ fontFamily: 'VT323', fontSize: 14, color: colors.inkDim }}>
-            PLANNED <Text style={{ color: colors.ink }}>{Math.round(plannedToDate)}mi</Text>
+        <View style={{ flexDirection: 'row', marginBottom: 10, alignItems: 'baseline' }}>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.inkDim }}>
+            PLANNED <Text style={{ fontFamily: fonts.monoBold, fontSize: 14, color: colors.ink }}>{Math.round(plannedToDate)}mi</Text>
           </Text>
-          <Text style={{ fontFamily: 'VT323', fontSize: 14, color: colors.inkDim, marginLeft: 14 }}>
-            ACTUAL <Text style={{ color: colors.ink }}>{actualToDate.toFixed(1)}mi</Text>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.inkDim, marginLeft: 14 }}>
+            ACTUAL <Text style={{ fontFamily: fonts.monoBold, fontSize: 14, color: colors.ink }}>{actualToDate.toFixed(1)}mi</Text>
           </Text>
-          <Text style={{ fontFamily: 'VT323', fontSize: 14, color: tone.color, marginLeft: 14 }}>
-            DELTA {delta >= 0 ? '+' : ''}{delta.toFixed(1)}mi {tone.label}
+          <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: tone.color, marginLeft: 14 }}>
+            DELTA <Text style={{ fontFamily: fonts.monoBold, fontSize: 14 }}>{delta >= 0 ? '+' : ''}{delta.toFixed(1)}mi</Text> {tone.label}
           </Text>
         </View>
 
@@ -148,7 +148,7 @@ export function WeeklyMileageTracker({ cycles, defaultCycleId, onWeekPress }: Pr
                     }} />
                   </View>
                   <Text style={{
-                    fontFamily: 'VT323', fontSize: 10, color: colors.inkMute, marginTop: 4,
+                    fontFamily: fonts.mono, fontSize: 9, color: colors.inkMute, marginTop: 4,
                   }}>
                     W{w.week_number}
                   </Text>
