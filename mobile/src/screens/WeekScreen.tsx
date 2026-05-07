@@ -7,22 +7,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlanCurrent, usePlanWeek } from '@/api/hooks/usePlan';
 import type { PlannedWorkoutOut } from '@/api/types';
+import { BrandBanner } from '@/components/BrandBanner';
+import { DayToggle } from '@/components/DayToggle';
 import { DisplacedSheet } from '@/components/DisplacedSheet';
 import { DraggableWeekList } from '@/components/DraggableWeekList';
 import { EditQuestSheet } from '@/components/EditQuestSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
-import { WhySheet } from '@/components/WhySheet';
 import { useDragMove } from '@/hooks/useDragMove';
 import { useEditFlow } from '@/hooks/useEditFlow';
-import { addDays, fromIso, startOfWeek, toIso } from '@/lib/dates';
+import { addDays, dayName, fromIso, startOfWeek, toIso } from '@/lib/dates';
 import type { RootStackParamList, TabParamList } from '@/navigation/types';
 import { colors, fonts } from '@/theme/tokens';
 
-function formatWeekLabel(weekStartIso: string): string {
+type DayCode = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
+const DAY_CODES: readonly DayCode[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+function isoToDayCode(iso: string): DayCode {
+  const d = fromIso(iso);
+  return dayName(d, 'short').toUpperCase() as DayCode;
+}
+
+function formatRange(weekStartIso: string): string {
   const start = fromIso(weekStartIso);
   const end = addDays(start, 6);
   const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
@@ -36,9 +45,12 @@ export function WeekScreen() {
   const drag = useDragMove();
   const flow = useEditFlow();
 
-  const whySheetRef = useRef<BottomSheet>(null);
   const proposalSheetRef = useRef<BottomSheet>(null);
-  const [whyWorkout, setWhyWorkout] = useState<PlannedWorkoutOut | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const todayIsoStr = useMemo(() => toIso(new Date()), []);
+  const todayCode = isoToDayCode(todayIsoStr);
+  const [selectedDay, setSelectedDay] = useState<DayCode>(todayCode);
 
   const weekStartIso = flow.editTarget !== null
     ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
@@ -63,17 +75,7 @@ export function WeekScreen() {
   const goNext = () => {
     setCursorIso((prev) => toIso(addDays(fromIso(prev), 7)));
   };
-  const jumpToday = () => {
-    setCursorIso(toIso(new Date()));
-  };
 
-  const openWhy = (w: PlannedWorkoutOut) => {
-    setWhyWorkout(w);
-    whySheetRef.current?.snapToIndex(0);
-  };
-  const closeWhy = () => {
-    whySheetRef.current?.close();
-  };
   const openDetail = (w: PlannedWorkoutOut) => {
     navigation.navigate('WorkoutDetail', { workoutId: w.id });
   };
@@ -83,54 +85,46 @@ export function WeekScreen() {
     });
   };
 
-  const weekLabel = useMemo(
-    () => (week.data !== undefined ? formatWeekLabel(week.data.week_start) : ''),
-    [week.data],
-  );
+  const onPickDay = (code: DayCode) => {
+    setSelectedDay(code);
+    // Best-effort scroll-anchor: precise per-day Y offsets aren't exposed by
+    // DraggableWeekList yet. Toggle state still updates visually; precise
+    // anchoring will follow up when the list exposes onDayLayout(date, y).
+  };
+
+  const subhead = useMemo(() => {
+    if (week.data === undefined) return 'LOADING…';
+    const range = formatRange(week.data.week_start);
+    const cycle = plan.data?.cycle_progress;
+    if (cycle === null || cycle === undefined) return range;
+    return `${range} — WK ${cycle.week} / ${cycle.total_weeks}`;
+  }, [week.data, plan.data]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
-      <View style={{
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 12,
-        borderBottomWidth: 2,
-        borderBottomColor: colors.line,
-        backgroundColor: colors.bgPanel,
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={goPrev} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: fonts.pixel, fontSize: 16, color: colors.ink }}>‹</Text>
+      <BrandBanner subhead={subhead} />
+      <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable onPress={goPrev} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: fonts.pixel, fontSize: 14, color: colors.ink }}>‹</Text>
           </Pressable>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.monoBold, fontSize: 16, color: colors.ink }}>{weekLabel}</Text>
-            {plan.data?.cycle_progress !== null && plan.data?.cycle_progress !== undefined && (
-              <Text style={{
-                fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5, marginTop: 4,
-              }}>
-                WK {plan.data.cycle_progress.week} / {plan.data.cycle_progress.total_weeks}
-              </Text>
-            )}
+          <View style={{ flex: 1 }}>
+            <DayToggle<DayCode>
+              options={DAY_CODES}
+              value={selectedDay}
+              highlight={todayCode}
+              onChange={onPickDay}
+            />
           </View>
-          <Pressable onPress={goNext} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: fonts.pixel, fontSize: 16, color: colors.ink }}>›</Text>
+          <Pressable onPress={goNext} hitSlop={10} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: fonts.pixel, fontSize: 14, color: colors.ink }}>›</Text>
           </Pressable>
         </View>
-        <Pressable
-          onPress={jumpToday}
-          hitSlop={6}
-          style={{ alignSelf: 'center', marginTop: 8 }}
-        >
-          <Text style={{
-            fontFamily: fonts.mono, fontSize: 11, color: colors.accentRun, letterSpacing: 0.5,
-          }}>
-            ▸ Jump to today
-          </Text>
-        </Pressable>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        ref={scrollRef}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
             refreshing={week.isFetching}
@@ -161,7 +155,6 @@ export function WeekScreen() {
         )}
       </ScrollView>
 
-      <WhySheet ref={whySheetRef} workout={whyWorkout} onClose={closeWhy} />
       <ProposalSheet
         ref={proposalSheetRef}
         proposal={drag.proposal}
