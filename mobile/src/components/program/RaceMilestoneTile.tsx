@@ -1,6 +1,6 @@
 import { Pressable, Text } from 'react-native';
 
-import { colors, radius } from '@/theme/tokens';
+import { colors, fonts, radius } from '@/theme/tokens';
 import { softBorder } from '@/theme/retro';
 
 interface Props {
@@ -33,12 +33,12 @@ export function RaceMilestoneTile({ raceName, raceDate, onPress }: Props) {
       ]}
     >
       <Text style={{
-        fontFamily: 'PressStart2P', fontSize: 14, color: colors.bg, letterSpacing: 1,
+        fontFamily: fonts.pixel, fontSize: 14, color: colors.bg, letterSpacing: 1,
       }}>
         ⚑ {raceName.toUpperCase()}
       </Text>
       <Text style={{
-        fontFamily: 'VT323', fontSize: 14, color: colors.bg, marginTop: 4,
+        fontFamily: fonts.mono, fontSize: 14, color: colors.bg, marginTop: 4,
       }}>
         {formatRaceDate(raceDate)}
       </Text>
