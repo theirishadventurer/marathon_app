@@ -23,8 +23,6 @@ interface DayFrame {
 interface Props {
   week: WeekOut;
   onWorkoutPress: (w: PlannedWorkoutOut) => void;
-  onWorkoutWhy: (w: PlannedWorkoutOut) => void;
-  onWorkoutEdit?: (w: PlannedWorkoutOut) => void;
   onMoveRequest: (w: PlannedWorkoutOut, newDate: string) => void;
   disabled?: boolean;
 }
@@ -44,8 +42,6 @@ interface DraggableProps {
   dayFrames: { value: DayFrame[] };
   hoveredDate: { value: string | null };
   onPress: () => void;
-  onWhy: () => void;
-  onEdit?: () => void;
   onMove: (newDate: string) => void;
   disabled: boolean;
 }
@@ -55,8 +51,6 @@ function DraggableWorkout({
   dayFrames,
   hoveredDate,
   onPress,
-  onWhy,
-  onEdit,
   onMove,
   disabled,
 }: DraggableProps) {
@@ -135,7 +129,7 @@ function DraggableWorkout({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={animatedStyle}>
-        <WorkoutCard workout={workout} compact onPress={onPress} onWhy={onWhy} onEdit={onEdit} />
+        <WorkoutCard workout={workout} onPress={onPress} />
       </Animated.View>
     </GestureDetector>
   );
@@ -168,8 +162,6 @@ function DropZone({ date, hoveredDate, children, onLayoutMeasure, measureRef }: 
 export function DraggableWeekList({
   week,
   onWorkoutPress,
-  onWorkoutWhy,
-  onWorkoutEdit,
   onMoveRequest,
   disabled = false,
 }: Props) {
@@ -217,7 +209,7 @@ export function DraggableWeekList({
               {day.workouts.length === 0 ? (
                 <View style={{
                   backgroundColor: colors.bgPanelAlt,
-                  borderWidth: 2, borderColor: colors.line, padding: 14, alignItems: 'center',
+                  borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 14, alignItems: 'center',
                 }}>
                   <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkMute }}>Rest day</Text>
                 </View>
@@ -229,8 +221,6 @@ export function DraggableWeekList({
                     dayFrames={dayFrames}
                     hoveredDate={hoveredDate}
                     onPress={() => { onWorkoutPress(w); }}
-                    onWhy={() => { onWorkoutWhy(w); }}
-                    onEdit={onWorkoutEdit !== undefined ? () => { onWorkoutEdit(w); } : undefined}
                     onMove={(newDate) => { onMoveRequest(w, newDate); }}
                     disabled={disabled}
                   />
