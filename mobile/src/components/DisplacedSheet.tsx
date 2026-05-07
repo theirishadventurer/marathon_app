@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { PlannedWorkoutSnapshot } from '@/api/types';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { addDays, fromIso, toIso } from '@/lib/dates';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -37,14 +37,14 @@ export const DisplacedSheet = forwardRef<BottomSheet, Props>(function DisplacedS
       handleIndicatorStyle={{ backgroundColor: colors.inkDim }}
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={{ fontFamily: 'PressStart2P', fontSize: 12, color: colors.accentHi, marginBottom: 6, letterSpacing: 1 }}>
-          DISPLACED
+        <Text style={{ fontFamily: fonts.monoBold, fontSize: 16, color: colors.accentHi, marginBottom: 6 }}>
+          Displaced
         </Text>
-        <Text style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink, marginBottom: 16 }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 18, color: colors.ink, marginBottom: 16 }}>
           {snapshot?.title ?? '—'}
         </Text>
-        <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 10, letterSpacing: 1 }}>
-          WHERE SHOULD IT GO?
+        <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 10, letterSpacing: 0.5 }}>
+          Where should it go?
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
           {days.map((iso, i) => (
