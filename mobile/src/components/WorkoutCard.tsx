@@ -4,7 +4,7 @@ import type { PlannedWorkoutOut } from '@/api/types';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroPill } from '@/components/retro/RetroPill';
 import { formatDistance } from '@/lib/format';
-import { colors, familyColor, type WorkoutFamily } from '@/theme/tokens';
+import { colors, familyColor, fonts, type WorkoutFamily } from '@/theme/tokens';
 
 const FAMILIES: ReadonlySet<WorkoutFamily> = new Set(['running', 'strength', 'other']);
 
@@ -45,7 +45,7 @@ export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }
               backgroundColor: tint, width: 10, height: 10, marginRight: 8,
             }} />
             <Text style={{
-              fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+              fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5,
             }}>
               {workout.type.toUpperCase()}
             </Text>
@@ -54,7 +54,7 @@ export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }
           </View>
 
           <Text style={{
-            fontFamily: 'VT323', fontSize: 22, color: colors.ink, lineHeight: 24,
+            fontFamily: fonts.monoBold, fontSize: 18, color: colors.ink, lineHeight: 22,
           }} numberOfLines={2}>
             {workout.title}
           </Text>
@@ -62,7 +62,7 @@ export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }
           {wasOriginal !== null && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
               <Text style={{
-                fontFamily: 'VT323', fontSize: 14, color: colors.inkDim,
+                fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim,
               }}>
                 ↻ was: {wasOriginal.title}
               </Text>
@@ -72,22 +72,22 @@ export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }
           {!compact && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
               {distance !== null && (
-                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
                   {distance}
                 </Text>
               )}
               {workout.duration_min !== null && (
-                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
                   {workout.duration_min}min
                 </Text>
               )}
               {workout.target_pace !== null && (
-                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginRight: 12 }}>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
                   {workout.target_pace}
                 </Text>
               )}
               {workout.target_hr_zone !== null && (
-                <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim }}>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim }}>
                   {workout.target_hr_zone}
                 </Text>
               )}
@@ -100,18 +100,18 @@ export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }
                 <Pressable
                   onPress={onWhy}
                   hitSlop={8}
-                  style={{ borderColor: colors.line, borderWidth: 2, paddingHorizontal: 8, paddingVertical: 4 }}
+                  style={{ borderColor: colors.line, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 }}
                 >
-                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.ink }}>WHY?</Text>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink }}>Why?</Text>
                 </Pressable>
               )}
               {onEdit !== undefined && (
                 <Pressable
                   onPress={onEdit}
                   hitSlop={8}
-                  style={{ borderColor: colors.line, borderWidth: 2, paddingHorizontal: 8, paddingVertical: 4 }}
+                  style={{ borderColor: colors.line, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 }}
                 >
-                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.ink }}>EDIT</Text>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink }}>Edit</Text>
                 </Pressable>
               )}
             </View>
