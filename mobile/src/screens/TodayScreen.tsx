@@ -157,8 +157,6 @@ export function TodayScreen() {
             key={w.id}
             workout={w}
             onPress={() => { openDetail(w); }}
-            onWhy={() => { openWhy(w); }}
-            onEdit={() => { flow.openEdit(w); }}
           />
         ))}
 

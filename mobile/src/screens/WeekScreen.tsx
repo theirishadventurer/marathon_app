@@ -155,8 +155,6 @@ export function WeekScreen() {
           <DraggableWeekList
             week={week.data}
             onWorkoutPress={openDetail}
-            onWorkoutWhy={openWhy}
-            onWorkoutEdit={flow.openEdit}
             onMoveRequest={requestMove}
             disabled={drag.pending !== null}
           />
