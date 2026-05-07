@@ -4,7 +4,8 @@ import type { PlannedWorkoutOut } from '@/api/types';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroPill } from '@/components/retro/RetroPill';
 import { formatDistance } from '@/lib/format';
-import { colors, familyColor, fonts, type WorkoutFamily } from '@/theme/tokens';
+import { dayName, fromIso } from '@/lib/dates';
+import { colors, fonts, type WorkoutFamily } from '@/theme/tokens';
 
 const FAMILIES: ReadonlySet<WorkoutFamily> = new Set(['running', 'strength', 'other']);
 
@@ -12,109 +13,138 @@ function asFamily(raw: string): WorkoutFamily {
   return FAMILIES.has(raw as WorkoutFamily) ? (raw as WorkoutFamily) : 'other';
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  planned: colors.inkDim,
-  moved: colors.accentRest,
-  skipped: colors.accentDanger,
-  done: colors.accentRun,
+interface FamilyBadge {
+  label: string;
+  bg: string;
+  ink: string;
+}
+
+const FAMILY_BADGE: Record<WorkoutFamily, FamilyBadge> = {
+  running:  { label: 'RUN',   bg: colors.accentRun,         ink: colors.bg },
+  strength: { label: 'STR',   bg: colors.accentStrength,    ink: colors.ink },
+  other:    { label: 'CROSS', bg: colors.accentBadgePurple, ink: colors.ink },
+};
+
+interface StatusBadge {
+  label: string;
+  bg: string;
+  ink: string;
+}
+
+const STATUS_BADGE: Record<PlannedWorkoutOut['status'], StatusBadge | null> = {
+  planned: null,
+  done:    { label: 'DONE',  bg: 'transparent',         ink: colors.accentRun },
+  skipped: { label: 'SKIP',  bg: colors.accentDanger,   ink: colors.ink },
+  moved:   { label: 'MOVED', bg: 'transparent',         ink: colors.accentCyan },
 };
 
 interface Props {
   workout: PlannedWorkoutOut;
   onPress?: () => void;
-  onWhy?: () => void;
-  onEdit?: () => void;
-  compact?: boolean;
+  /** Compact composition for narrow contexts (e.g. Program tab cycle lanes). */
+  dense?: boolean;
 }
 
-export function WorkoutCard({ workout, onPress, onWhy, onEdit, compact = false }: Props) {
+function firstSentence(md: string, max = 90): string {
+  const trimmed = md.trim();
+  if (trimmed.length === 0) return '';
+  const firstStop = trimmed.search(/[.!]/);
+  const chunk = firstStop === -1 ? trimmed : trimmed.slice(0, firstStop + 1);
+  if (chunk.length <= max) return chunk;
+  return `${chunk.slice(0, max - 1).trimEnd()}…`;
+}
+
+function metaLabel(workout: PlannedWorkoutOut, dense: boolean): string {
+  const d = fromIso(workout.scheduled_date);
+  const dn = dayName(d).toUpperCase();
+  if (dense) {
+    return `WK${workout.week_number} · ${dn}`;
+  }
+  return `${dn} ${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function titleText(workout: PlannedWorkoutOut): string {
   const family = asFamily(workout.family);
-  const tint = familyColor[family];
-  const distance = workout.distance_mi !== null
-    ? formatDistance(parseFloat(workout.distance_mi))
-    : null;
-  const statusColor = STATUS_COLOR[workout.status] ?? colors.inkDim;
+  if (family !== 'running' || workout.distance_mi === null) return workout.title;
+  const mi = parseFloat(workout.distance_mi);
+  if (Number.isNaN(mi)) return workout.title;
+  return `${workout.title} · ${formatDistance(mi)}`;
+}
+
+/**
+ * Staycation-composition workout card. Tap target only — actions
+ * (Why, Edit, Mark Done, Skip) live on WorkoutDetail.
+ *
+ * Composition: meta line + family badge + (status badge?) + chevron;
+ * monoBold title; lighter mono sub (first sentence of intent_md).
+ *
+ * Spec: docs/superpowers/specs/2026-05-07-feat-staycation-ux-overhaul-design.md §5.2.
+ */
+export function WorkoutCard({ workout, onPress, dense = false }: Props) {
+  const family = asFamily(workout.family);
+  const fam = FAMILY_BADGE[family];
+  const status = STATUS_BADGE[workout.status];
   const wasOriginal = workout.original_snapshot;
+  const sub = firstSentence(workout.intent_md);
+
+  const px = dense ? 10 : 14;
+  const py = dense ? 8 : 12;
+  const titleSize = dense ? 13 : 18;
+  const titleLh = dense ? 18 : 24;
+  const subSize = dense ? 11 : 14;
+  const subLh = dense ? 16 : 20;
+  const metaSize = dense ? 10 : 11;
+  const subLines = dense ? 1 : 2;
 
   return (
-    <Pressable onPress={onPress} style={{ marginBottom: 14 }}>
+    <Pressable onPress={onPress} style={{ marginBottom: dense ? 6 : 12 }}>
       <RetroBorder>
-        <View style={{ padding: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <View style={{
-              backgroundColor: tint, width: 10, height: 10, marginRight: 8,
-            }} />
-            <Text style={{
-              fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5,
-            }}>
-              {workout.type.toUpperCase()}
-            </Text>
-            <View style={{ flex: 1 }} />
-            <RetroPill label={workout.status} color={statusColor} />
-          </View>
-
-          <Text style={{
-            fontFamily: fonts.monoBold, fontSize: 18, color: colors.ink, lineHeight: 22,
-          }} numberOfLines={2}>
-            {workout.title}
-          </Text>
-
+        <View style={{ paddingHorizontal: px, paddingVertical: py }}>
           {wasOriginal !== null && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-              <Text style={{
-                fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim,
-              }}>
-                ↻ was: {wasOriginal.title}
-              </Text>
-            </View>
+            <Text style={{
+              fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 4,
+            }}>
+              ↻ was: {wasOriginal.title}
+            </Text>
           )}
-
-          {!compact && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-              {distance !== null && (
-                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
-                  {distance}
-                </Text>
-              )}
-              {workout.duration_min !== null && (
-                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
-                  {workout.duration_min}min
-                </Text>
-              )}
-              {workout.target_pace !== null && (
-                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginRight: 12 }}>
-                  {workout.target_pace}
-                </Text>
-              )}
-              {workout.target_hr_zone !== null && (
-                <Text style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim }}>
-                  {workout.target_hr_zone}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {(onWhy !== undefined || onEdit !== undefined) && (
-            <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
-              {onWhy !== undefined && (
-                <Pressable
-                  onPress={onWhy}
-                  hitSlop={8}
-                  style={{ borderColor: colors.line, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 }}
-                >
-                  <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink }}>Why?</Text>
-                </Pressable>
-              )}
-              {onEdit !== undefined && (
-                <Pressable
-                  onPress={onEdit}
-                  hitSlop={8}
-                  style={{ borderColor: colors.line, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 }}
-                >
-                  <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.ink }}>Edit</Text>
-                </Pressable>
-              )}
-            </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: dense ? 2 : 4, gap: 8 }}>
+            <Text style={{
+              fontFamily: fonts.mono, fontSize: metaSize, color: colors.inkDim, letterSpacing: 0.5,
+            }}>
+              {metaLabel(workout, dense)}
+            </Text>
+            <RetroPill variant="badge" label={fam.label} background={fam.bg} color={fam.ink} />
+            {status !== null && (
+              status.bg === 'transparent' ? (
+                <RetroPill variant="bracket" label={status.label} color={status.ink} />
+              ) : (
+                <RetroPill variant="badge" label={status.label} background={status.bg} color={status.ink} />
+              )
+            )}
+            <View style={{ flex: 1 }} />
+            <Text style={{
+              fontFamily: fonts.mono, fontSize: dense ? 14 : 18, color: colors.accentCyan,
+            }}>
+              ›
+            </Text>
+          </View>
+          <Text
+            style={{
+              fontFamily: fonts.monoBold, fontSize: titleSize, color: colors.ink, lineHeight: titleLh,
+            }}
+            numberOfLines={dense ? 1 : 2}
+          >
+            {titleText(workout)}
+          </Text>
+          {sub.length > 0 && (
+            <Text
+              style={{
+                fontFamily: fonts.mono, fontSize: subSize, color: colors.inkDim, lineHeight: subLh, marginTop: 2,
+              }}
+              numberOfLines={subLines}
+            >
+              {sub}
+            </Text>
           )}
         </View>
       </RetroBorder>
