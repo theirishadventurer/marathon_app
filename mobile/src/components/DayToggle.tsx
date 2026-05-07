@@ -39,7 +39,7 @@ export function DayToggle<T extends string>({ options, value, onChange, highligh
         return (
           <View key={opt} style={{ flex: 1, flexDirection: 'row' }}>
             {showDivider && (
-              <View style={{ width: 1, backgroundColor: colors.line }} />
+              <View style={{ width: 1, backgroundColor: colors.line, alignSelf: 'stretch' }} />
             )}
             <Pressable
               onPress={() => { onChange(opt); }}
