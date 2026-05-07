@@ -102,7 +102,7 @@ class CompletedWorkout(UUIDMixin, Base):
         nullable=False,
     )
 
-    garmin_activity_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    garmin_activity_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
     activity_date: Mapped[date] = mapped_column(Date, nullable=False)
     started_at: Mapped[datetime] = mapped_column(nullable=False)
     activity_type: Mapped[str] = mapped_column(Text, nullable=False)
