@@ -359,6 +359,117 @@
         }
       }
     },
+    "/plan/start-date": {
+      "post": {
+        "tags": [
+          "plan"
+        ],
+        "summary": "Update Start Date",
+        "description": "Reseed the plan to a new Cycle 1 start date (Session 2.7 Phase 0 Q0.1).\n\nWith ``?dry_run=true`` returns the impact preview only \u2014 no DB writes.\nOtherwise applies the reseed: drops Cycle-1 incomplete planned/moved\nrows (and any pre-new-start done/skipped), re-emits a fresh Cycle 1\nfrom PLAN.md anchored at ``new_start_date``, discards pending agent\nproposals, writes a ``plan_history`` row, and busts athlete caches.",
+        "operationId": "update_start_date_plan_start_date_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartDateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartDateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workouts/completed/recent": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Recent Completed",
+        "operationId": "recent_completed_workouts_completed_recent_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompletedWorkoutOut"
+                  },
+                  "title": "Response Recent Completed Workouts Completed Recent Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workouts/{workout_id}": {
       "get": {
         "tags": [
@@ -681,6 +792,65 @@
         }
       }
     },
+    "/workouts/{workout_id}/log-completed": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Log Completed",
+        "description": "Manually mark a planned workout as completed.\n\nUsed when the user logs a workout that was not synced from Garmin\n(e.g. treadmill run, strength session, missed-sync). Creates a\nCompletedWorkout (with garmin_activity_id=NULL) and a Reconciliation\nrow at confidence 1.0, and flips the planned workout to status=done.",
+        "operationId": "log_completed_workouts__workout_id__log_completed_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogCompletedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogCompletedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metrics/recent": {
       "get": {
         "tags": [
@@ -817,7 +987,14 @@
             "title": "Id"
           },
           "garmin_activity_id": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Garmin Activity Id"
           },
           "activity_date": {
@@ -1359,6 +1536,93 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "LogCompletedRequest": {
+        "properties": {
+          "duration_min": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Duration Min"
+          },
+          "distance_mi": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Mi"
+          },
+          "avg_pace_str": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Pace Str"
+          },
+          "avg_hr": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 250.0,
+                "minimum": 20.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Hr"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "duration_min"
+        ],
+        "title": "LogCompletedRequest",
+        "description": "Manual completion log: duration is required; pace/distance optional."
+      },
+      "LogCompletedResponse": {
+        "properties": {
+          "planned": {
+            "$ref": "#/components/schemas/PlannedWorkoutOut"
+          },
+          "completed": {
+            "$ref": "#/components/schemas/CompletedWorkoutOut"
+          },
+          "reconciliation": {
+            "$ref": "#/components/schemas/ReconciliationOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "planned",
+          "completed",
+          "reconciliation"
+        ],
+        "title": "LogCompletedResponse"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -1893,6 +2157,102 @@
           "proposal"
         ],
         "title": "RescheduleOriginalResponse"
+      },
+      "StartDateImpact": {
+        "properties": {
+          "completed_kept": {
+            "type": "integer",
+            "title": "Completed Kept"
+          },
+          "completed_dropped": {
+            "type": "integer",
+            "title": "Completed Dropped"
+          },
+          "done_planned_kept": {
+            "type": "integer",
+            "title": "Done Planned Kept"
+          },
+          "skipped_planned_kept": {
+            "type": "integer",
+            "title": "Skipped Planned Kept"
+          },
+          "planned_dropped": {
+            "type": "integer",
+            "title": "Planned Dropped"
+          },
+          "proposals_discarded": {
+            "type": "integer",
+            "title": "Proposals Discarded"
+          },
+          "new_cycle1_weeks": {
+            "type": "integer",
+            "title": "New Cycle1 Weeks"
+          },
+          "new_cycle1_start": {
+            "type": "string",
+            "format": "date",
+            "title": "New Cycle1 Start"
+          },
+          "new_cycle1_end": {
+            "type": "string",
+            "format": "date",
+            "title": "New Cycle1 End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "completed_kept",
+          "completed_dropped",
+          "done_planned_kept",
+          "skipped_planned_kept",
+          "planned_dropped",
+          "proposals_discarded",
+          "new_cycle1_weeks",
+          "new_cycle1_start",
+          "new_cycle1_end"
+        ],
+        "title": "StartDateImpact"
+      },
+      "StartDateRequest": {
+        "properties": {
+          "new_start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "New Start Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_start_date"
+        ],
+        "title": "StartDateRequest"
+      },
+      "StartDateResponse": {
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/StartDateImpact"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanCurrentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "dry_run",
+          "impact"
+        ],
+        "title": "StartDateResponse"
       },
       "SyncReportOut": {
         "properties": {
