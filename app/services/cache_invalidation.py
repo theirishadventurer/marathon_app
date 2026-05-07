@@ -11,8 +11,15 @@ def invalidate_for_athlete(athlete_id: UUID) -> None:
     Called from any mutation handler that changes athlete-visible state.
     Currently fans out to:
     - plan_aggregator's plan_full + plan_stats caches
+    - workouts route's recent-completed cache
 
     Phase 2 tasks will extend this fan-out as new caches land
-    (recent_completed in 2.B1, coach_brief in 2.B2).
+    (coach_brief in 2.B2).
     """
     _invalidate_plan(athlete_id)
+
+    # Lazy import: app.routes.workouts imports from this module, so a
+    # top-level import here would create a circular dependency at startup.
+    from app.routes.workouts import _clear_recent_completed_cache
+
+    _clear_recent_completed_cache(athlete_id)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -60,6 +61,44 @@ def _activity_type_for(family: WorkoutFamily) -> str:
 
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
+
+
+# 60s in-process per-athlete cache for the "recent completed" endpoint.
+# Keyed by (athlete_id, limit). Cleared by cache_invalidation umbrella on
+# any athlete-state mutation (log-completed, edit, move, etc.).
+_RECENT_COMPLETED_CACHE: dict[tuple[uuid.UUID, int], tuple[float, list[dict]]] = {}
+_RECENT_TTL_S = 60.0
+
+
+def _clear_recent_completed_cache(athlete_id: uuid.UUID) -> None:
+    keys = [k for k in _RECENT_COMPLETED_CACHE if k[0] == athlete_id]
+    for k in keys:
+        _RECENT_COMPLETED_CACHE.pop(k, None)
+
+
+@router.get("/completed/recent", response_model=list[CompletedWorkoutOut])
+async def recent_completed(
+    limit: int = 5,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    limit = max(1, min(limit, 50))
+    key = (athlete.id, limit)
+    cached = _RECENT_COMPLETED_CACHE.get(key)
+    now = time.monotonic()
+    if cached is not None and now - cached[0] < _RECENT_TTL_S:
+        return cached[1]
+
+    result = await db.execute(
+        select(CompletedWorkout)
+        .where(CompletedWorkout.athlete_id == athlete.id)
+        .order_by(CompletedWorkout.started_at.desc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    serialized = [CompletedWorkoutOut.model_validate(r).model_dump(mode="json") for r in rows]
+    _RECENT_COMPLETED_CACHE[key] = (time.monotonic(), serialized)
+    return serialized
 
 
 @router.get("/{workout_id}", response_model=WorkoutDetailOut)
