@@ -35,15 +35,28 @@ const tabIcon = (label: string) => ({ color }: { color: string }) =>
  * the icon+label when focused. Inactive tabs render with no background.
  * Replaces react-navigation's default flat active-tint highlight.
  *
+ * NOTE: react-navigation v7 passes `aria-selected` (not `accessibilityState`)
+ * to the button factory — see BottomTabItem.js line 141. Reading
+ * `accessibilityState?.selected` here would silently always evaluate to
+ * false and the pill would never render.
+ *
  * Spec: docs/superpowers/specs/2026-05-07-feat-staycation-ux-overhaul-design.md §5.5.
  */
-function PillTabBarButton({ children, onPress, accessibilityState, accessibilityLabel, testID }: BottomTabBarButtonProps) {
-  const focused = accessibilityState?.selected === true;
+function PillTabBarButton({
+  children,
+  onPress,
+  onLongPress,
+  testID,
+  'aria-label': ariaLabel,
+  'aria-selected': ariaSelected,
+}: BottomTabBarButtonProps) {
+  const focused = ariaSelected === true;
   return (
     <Pressable
       onPress={onPress}
-      accessibilityState={accessibilityState}
-      accessibilityLabel={accessibilityLabel}
+      onLongPress={onLongPress}
+      aria-label={ariaLabel}
+      aria-selected={ariaSelected}
       testID={testID}
       style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
     >
