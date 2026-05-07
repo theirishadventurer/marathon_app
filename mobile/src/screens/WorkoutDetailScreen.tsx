@@ -7,11 +7,13 @@ import { useSkipWorkout, useWorkoutDetail } from '@/api/hooks/useWorkouts';
 import type { CompletedWorkoutOut, PlannedWorkoutOut, ReconciliationOut } from '@/api/types';
 import { DisplacedSheet } from '@/components/DisplacedSheet';
 import { EditQuestSheet } from '@/components/EditQuestSheet';
+import { LogCompletedSheet } from '@/components/LogCompletedSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useEditFlow } from '@/hooks/useEditFlow';
+import { useLogFlow } from '@/hooks/useLogFlow';
 import { fromIso, startOfWeek, toIso } from '@/lib/dates';
 import {
   formatDistance,
@@ -136,6 +138,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const detail = useWorkoutDetail(workoutId);
   const skip = useSkipWorkout();
   const flow = useEditFlow();
+  const log = useLogFlow();
   const weekStartIso = flow.editTarget !== null
     ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
     : null;
@@ -254,6 +257,18 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
         borderTopColor: colors.line,
         backgroundColor: colors.bgPanel,
       }}>
+        {detail.data?.planned !== null && detail.data?.planned !== undefined &&
+         detail.data.planned.type !== 'rest' &&
+         detail.data.planned.status !== 'done' &&
+         detail.data.planned.status !== 'skipped' && (
+          <View style={{ marginBottom: 8 }}>
+            <RetroButton
+              label="Mark done"
+              tone="primary"
+              onPress={() => { log.open(detail.data!.planned!); }}
+            />
+          </View>
+        )}
         <RetroButton
           tone="danger"
           label={isSkipped ? 'Skipped' : 'Skip workout'}
@@ -284,6 +299,15 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
         submitting={flow.applyPending}
         onApply={flow.applyProposal}
         onCancel={flow.cancelProposal}
+      />
+      <LogCompletedSheet
+        ref={log.sheetRef}
+        workout={log.target}
+        submitting={log.submitting}
+        onConfirm={log.confirm}
+        onClose={log.close}
+        onSync={log.triggerSync}
+        syncPending={log.syncPending}
       />
     </SafeAreaView>
   );
