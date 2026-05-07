@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { colors, fonts } from '@/theme/tokens';
+import { colors, fonts, spacing } from '@/theme/tokens';
 
 interface Props {
   /** mono-caps subhead text shown after the `▸` caret, e.g. "MARATHON_TRILOGY — WK 4 / 28 · MCM 173d" */
@@ -18,7 +18,7 @@ interface Props {
  */
 export function BrandBanner({ subhead, meta = 'v1.0 ◦' }: Props) {
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 }}>
+    <View style={{ paddingHorizontal: 20, paddingTop: spacing.md, paddingBottom: spacing.lg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{
           fontFamily: fonts.pixel,
@@ -41,14 +41,14 @@ export function BrandBanner({ subhead, meta = 'v1.0 ◦' }: Props) {
         fontSize: 12,
         color: colors.inkDim,
         letterSpacing: 0.5,
-        marginTop: 4,
+        marginTop: spacing.xs,
       }}>
         ▸ {subhead}
       </Text>
       <View style={{
         height: 1,
         backgroundColor: colors.line,
-        marginTop: 12,
+        marginTop: spacing.md,
       }} />
     </View>
   );
