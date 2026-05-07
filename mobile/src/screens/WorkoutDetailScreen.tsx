@@ -21,20 +21,20 @@ import {
   metersToMiles,
 } from '@/lib/format';
 import type { RootStackParamList } from '@/navigation/types';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkoutDetail'>;
 
 const markdownStyle = {
-  body: { color: colors.ink, fontFamily: 'VT323', fontSize: 18, lineHeight: 22 },
-  heading1: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 14, marginTop: 12, marginBottom: 8 },
-  heading2: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 12, marginTop: 12, marginBottom: 6 },
-  heading3: { color: colors.ink, fontFamily: 'PressStart2P', fontSize: 10, marginTop: 10, marginBottom: 4 },
+  body: { color: colors.ink, fontFamily: fonts.body, fontSize: 18, lineHeight: 22 },
+  heading1: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 16, marginTop: 12, marginBottom: 8 },
+  heading2: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 14, marginTop: 12, marginBottom: 6 },
+  heading3: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 12, marginTop: 10, marginBottom: 4 },
   paragraph: { color: colors.ink, marginBottom: 8 },
   code_inline: { color: colors.accentHi, backgroundColor: colors.bgPanelAlt, paddingHorizontal: 4 },
   bullet_list: { marginBottom: 8 },
   list_item: { color: colors.ink },
-  strong: { color: colors.ink, fontFamily: 'VT323', fontWeight: '700' as const },
+  strong: { color: colors.ink, fontFamily: fonts.monoBold, fontSize: 18 },
   em: { color: colors.ink, fontStyle: 'italic' as const },
   hr: { backgroundColor: colors.line, height: 2, marginVertical: 12 },
 };
@@ -174,7 +174,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
       }}>
         <Pressable onPress={() => { navigation.goBack(); }} hitSlop={10}>
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 10, color: colors.accentRun, letterSpacing: 1,
+            fontFamily: fonts.pixel, fontSize: 10, color: colors.accentRun, letterSpacing: 1,
           }}>
             ‹ BACK
           </Text>
@@ -186,7 +186,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
             hitSlop={10}
             style={{ marginLeft: 'auto' }}
           >
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 10, color: colors.accentRun, letterSpacing: 1 }}>
+            <Text style={{ fontFamily: fonts.pixel, fontSize: 10, color: colors.accentRun, letterSpacing: 1 }}>
               EDIT
             </Text>
           </Pressable>
@@ -196,30 +196,30 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
         {detail.isLoading && (
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5,
           }}>
-            LOADING…
+            Loading…
           </Text>
         )}
         {detail.isError && (
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.accentDanger, letterSpacing: 0.5,
           }}>
-            COULD NOT LOAD WORKOUT
+            Could not load workout
           </Text>
         )}
         {detail.data?.planned !== null && detail.data?.planned !== undefined && (
           <View>
             <Text style={{
-              fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+              fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5,
             }}>
               WK {detail.data.planned.week_number} · {detail.data.planned.type.toUpperCase()}
             </Text>
             <Text style={{
-              fontFamily: 'PressStart2P', fontSize: 14, color: colors.ink, letterSpacing: 1,
+              fontFamily: fonts.monoBold, fontSize: 22, color: colors.ink,
               marginTop: 6, marginBottom: 14,
             }}>
-              {detail.data.planned.title.toUpperCase()}
+              {detail.data.planned.title}
             </Text>
 
             {detail.data.planned.description_md.trim().length > 0 && (
