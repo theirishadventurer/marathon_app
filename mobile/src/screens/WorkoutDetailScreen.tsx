@@ -14,7 +14,9 @@ import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useEditFlow } from '@/hooks/useEditFlow';
 import { useLogFlow } from '@/hooks/useLogFlow';
-import { fromIso, startOfWeek, toIso } from '@/lib/dates';
+import { dayName, fromIso, startOfWeek, toIso } from '@/lib/dates';
+import { BrandBanner } from '@/components/BrandBanner';
+import { BottomActionBar } from '@/components/BottomActionBar';
 import {
   formatDistance,
   formatDuration,
@@ -40,6 +42,12 @@ const markdownStyle = {
   em: { color: colors.ink, fontStyle: 'italic' as const },
   hr: { backgroundColor: colors.line, height: 2, marginVertical: 12 },
 };
+
+function detailSubhead(workout: { week_number: number; scheduled_date: string }): string {
+  const d = fromIso(workout.scheduled_date);
+  const dn = dayName(d, 'long').toUpperCase();
+  return `WK ${workout.week_number} · ${dn} · ${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
 
 function StatRow({ label, planned, actual }: { label: string; planned: string; actual: string }) {
   return (
@@ -166,20 +174,25 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <BrandBanner
+        subhead={
+          detail.data?.planned !== null && detail.data?.planned !== undefined
+            ? detailSubhead(detail.data.planned)
+            : 'WORKOUT'
+        }
+      />
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderBottomWidth: 2,
-        borderBottomColor: colors.line,
-        backgroundColor: colors.bgPanel,
+        paddingTop: 4,
+        paddingBottom: 8,
       }}>
         <Pressable onPress={() => { navigation.goBack(); }} hitSlop={10}>
           <Text style={{
-            fontFamily: fonts.pixel, fontSize: 10, color: colors.accentRun, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 12, color: colors.accentCyan, letterSpacing: 0.5,
           }}>
-            ‹ BACK
+            ‹ Back
           </Text>
         </Pressable>
         <View style={{ flex: 1 }} />
@@ -187,10 +200,11 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
           <Pressable
             onPress={() => { flow.openEdit(detail.data!.planned!); }}
             hitSlop={10}
-            style={{ marginLeft: 'auto' }}
           >
-            <Text style={{ fontFamily: fonts.pixel, fontSize: 10, color: colors.accentRun, letterSpacing: 1 }}>
-              EDIT
+            <Text style={{
+              fontFamily: fonts.mono, fontSize: 12, color: colors.accentCyan, letterSpacing: 0.5,
+            }}>
+              Edit
             </Text>
           </Pressable>
         )}
@@ -250,18 +264,12 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
         )}
       </ScrollView>
 
-      <View style={{
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderTopWidth: 2,
-        borderTopColor: colors.line,
-        backgroundColor: colors.bgPanel,
-      }}>
+      <BottomActionBar>
         {detail.data?.planned !== null && detail.data?.planned !== undefined &&
          detail.data.planned.type !== 'rest' &&
          detail.data.planned.status !== 'done' &&
          detail.data.planned.status !== 'skipped' && (
-          <View style={{ marginBottom: 8 }}>
+          <View style={{ flex: 1 }}>
             <RetroButton
               label="Mark done"
               tone="primary"
@@ -269,13 +277,15 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
             />
           </View>
         )}
-        <RetroButton
-          tone="danger"
-          label={isSkipped ? 'Skipped' : 'Skip workout'}
-          onPress={onSkip}
-          disabled={skip.isPending || isSkipped}
-        />
-      </View>
+        <View style={{ flex: 1 }}>
+          <RetroButton
+            tone="danger"
+            label={isSkipped ? 'Skipped' : 'Skip workout'}
+            onPress={onSkip}
+            disabled={skip.isPending || isSkipped}
+          />
+        </View>
+      </BottomActionBar>
 
       <EditQuestSheet
         ref={flow.editRef}
