@@ -5,7 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { EditWorkoutRequest, PlannedWorkoutOut } from '@/api/types';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface QuickPick {
   type: string;
@@ -74,17 +74,17 @@ export const EditQuestSheet = forwardRef<BottomSheet, Props>(function EditQuestS
       handleIndicatorStyle={{ backgroundColor: colors.inkDim }}
     >
       <BottomSheetScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={{ fontFamily: 'PressStart2P', fontSize: 14, color: colors.accentHi, marginBottom: 14, letterSpacing: 1 }}>
-          EDIT QUEST
+        <Text style={{ fontFamily: fonts.monoBold, fontSize: 18, color: colors.accentHi, marginBottom: 18 }}>
+          Edit Quest
         </Text>
         {workout !== null && (
-          <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginBottom: 14 }}>
+          <Text style={{ fontFamily: fonts.body, fontSize: 16, color: colors.inkDim, marginBottom: 14 }}>
             currently: {workout.title}
           </Text>
         )}
 
-        <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 8, letterSpacing: 1 }}>
-          QUICK PICK
+        <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 8, letterSpacing: 0.5 }}>
+          Quick pick
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {QUICK_PICKS.map((p) => {
@@ -115,23 +115,23 @@ export const EditQuestSheet = forwardRef<BottomSheet, Props>(function EditQuestS
         </View>
 
         <Pressable onPress={() => { setTweaking((t) => !t); }} hitSlop={6}>
-          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentRun, marginBottom: 8, letterSpacing: 1 }}>
-            {tweaking ? '▾ HIDE STATS' : '▸ TWEAK STATS'}
+          <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.accentRun, marginBottom: 8, letterSpacing: 0.5 }}>
+            {tweaking ? '▾ Hide stats' : '▸ Tweak stats'}
           </Text>
         </Pressable>
 
         {tweaking && (
           <RetroBorder style={{ marginBottom: 16 }} background={colors.bgPanelAlt}>
             <View style={{ padding: 12 }}>
-              <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 4, letterSpacing: 1 }}>DISTANCE (MI)</Text>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 4, letterSpacing: 0.5 }}>Distance (mi)</Text>
               <TextInput value={distance} onChangeText={setDistance} keyboardType="decimal-pad"
-                style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line, marginBottom: 10 }} />
-              <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 4, letterSpacing: 1 }}>DURATION (MIN)</Text>
+                style={{ fontFamily: fonts.body, fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line, marginBottom: 10 }} />
+              <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 4, letterSpacing: 0.5 }}>Duration (min)</Text>
               <TextInput value={duration} onChangeText={setDuration} keyboardType="number-pad"
-                style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line, marginBottom: 10 }} />
-              <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 4, letterSpacing: 1 }}>TITLE</Text>
+                style={{ fontFamily: fonts.body, fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line, marginBottom: 10 }} />
+              <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 4, letterSpacing: 0.5 }}>Title</Text>
               <TextInput value={title} onChangeText={setTitle}
-                style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line }} />
+                style={{ fontFamily: fonts.body, fontSize: 18, color: colors.ink, padding: 6, borderWidth: 2, borderColor: colors.line }} />
             </View>
           </RetroBorder>
         )}
