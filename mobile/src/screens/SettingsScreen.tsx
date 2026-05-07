@@ -9,7 +9,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 function timeAgo(iso: string | null): string {
   if (iso === null) return 'never';
@@ -47,7 +47,7 @@ function GarminReauth({ onDone }: { onDone: () => void }) {
   };
 
   const inputStyle = {
-    fontFamily: 'VT323',
+    fontFamily: fonts.body,
     fontSize: 18,
     color: colors.ink,
     paddingHorizontal: 10,
@@ -58,7 +58,7 @@ function GarminReauth({ onDone }: { onDone: () => void }) {
     <RetroBorder background={colors.bgPanelAlt} style={{ marginTop: 12 }}>
       <View style={{ padding: 14 }}>
         <Text style={{
-          fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 8,
+          fontFamily: fonts.pixel, fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginBottom: 8,
         }}>
           RECONNECT GARMIN
         </Text>
@@ -90,7 +90,7 @@ function GarminReauth({ onDone }: { onDone: () => void }) {
         </View>
         {error !== null && (
           <Text style={{
-            fontFamily: 'VT323', fontSize: 16, color: colors.accentDanger, marginBottom: 8,
+            fontFamily: fonts.mono, fontSize: 12, color: colors.accentDanger, marginBottom: 8,
           }}>
             {error}
           </Text>
@@ -132,7 +132,7 @@ export function SettingsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         <Text style={{
-          fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink, letterSpacing: 1, marginBottom: 24,
+          fontFamily: fonts.pixel, fontSize: 16, color: colors.ink, letterSpacing: 1, marginBottom: 24,
         }}>
           SETTINGS
         </Text>
@@ -141,19 +141,19 @@ export function SettingsScreen() {
         <RetroBorder style={{ marginBottom: 24 }}>
           <View style={{ padding: 14 }}>
             {plan.data === undefined ? (
-              <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim }}>—</Text>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim }}>—</Text>
             ) : (
               <View>
-                <Text style={{ fontFamily: 'PressStart2P', fontSize: 10, color: colors.ink, letterSpacing: 1 }}>
-                  {plan.data.plan_name.toUpperCase()}
+                <Text style={{ fontFamily: fonts.monoBold, fontSize: 16, color: colors.ink }}>
+                  {plan.data.plan_name}
                 </Text>
                 {plan.data.active_cycle !== null && (
-                  <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 6 }}>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.inkDim, marginTop: 6 }}>
                     Cycle: {plan.data.active_cycle.name} → {plan.data.active_cycle.race_name}
                   </Text>
                 )}
                 {plan.data.cycle_progress !== null && (
-                  <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 4 }}>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.inkDim, marginTop: 4 }}>
                     Week {plan.data.cycle_progress.week} of {plan.data.cycle_progress.total_weeks} · {plan.data.cycle_progress.days_to_race} days to race
                   </Text>
                 )}
@@ -168,7 +168,7 @@ export function SettingsScreen() {
             {status.isLoading ? (
               <ActivityIndicator color={colors.accentRun} />
             ) : status.data === undefined ? (
-              <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim }}>—</Text>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim }}>—</Text>
             ) : (
               <View>
                 {status.data.needs_reauth && (
@@ -176,34 +176,34 @@ export function SettingsScreen() {
                     borderWidth: 2, borderColor: colors.accentDanger, padding: 12, marginBottom: 12,
                   }}>
                     <Text style={{
-                      fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
+                      fontFamily: fonts.pixel, fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
                     }}>
                       ! REAUTH REQUIRED
                     </Text>
                     <Text style={{
-                      fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 6,
+                      fontFamily: fonts.mono, fontSize: 13, color: colors.inkDim, marginTop: 6,
                     }}>
                       Garmin is asking us to log in again.
                     </Text>
                   </View>
                 )}
                 <Text style={{
-                  fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+                  fontFamily: fonts.pixel, fontSize: 8, color: colors.inkDim, letterSpacing: 1,
                 }}>
                   LAST SYNC
                 </Text>
-                <Text style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink, marginTop: 4 }}>
+                <Text style={{ fontFamily: fonts.monoBold, fontSize: 18, color: colors.ink, marginTop: 4 }}>
                   {timeAgo(status.data.last_sync)}
                 </Text>
                 {status.data.last_error !== null && (
                   <View style={{ marginTop: 12 }}>
                     <Text style={{
-                      fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+                      fontFamily: fonts.pixel, fontSize: 8, color: colors.inkDim, letterSpacing: 1,
                     }}>
                       LAST ERROR
                     </Text>
                     <Text style={{
-                      fontFamily: 'VT323', fontSize: 16, color: colors.accentDanger, marginTop: 4,
+                      fontFamily: fonts.mono, fontSize: 13, color: colors.accentDanger, marginTop: 4,
                     }}>
                       {status.data.last_error}
                     </Text>
@@ -228,7 +228,7 @@ export function SettingsScreen() {
                 </View>
                 {syncMsg !== null && (
                   <Text style={{
-                    fontFamily: 'VT323', fontSize: 14, color: colors.inkDim, marginTop: 12,
+                    fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim, marginTop: 12,
                   }}>
                     {syncMsg}
                   </Text>
