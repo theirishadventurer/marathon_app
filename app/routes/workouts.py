@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import re
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,11 +32,32 @@ from app.schemas.move import ApplyMoveRequest, MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
     CompletedWorkoutOut,
+    LogCompletedRequest,
+    LogCompletedResponse,
     ReconciliationOut,
     WorkoutDetailOut,
 )
 from app.services.agents.plan_adapter import propose_rebalance
 from app.services.cache_invalidation import invalidate_for_athlete
+
+_PACE_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+
+
+def _parse_pace_to_s_per_km(pace_str: str) -> int:
+    m = _PACE_RE.match(pace_str)
+    if not m:
+        raise HTTPException(status_code=400, detail="avg_pace_str must be mm:ss")
+    s_per_mi = int(m.group(1)) * 60 + int(m.group(2))
+    return round(s_per_mi / 1.609344)
+
+
+def _activity_type_for(family: WorkoutFamily) -> str:
+    return {
+        WorkoutFamily.running: "running",
+        WorkoutFamily.strength: "strength_training",
+        WorkoutFamily.other: "other",
+    }[family]
+
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -391,3 +413,94 @@ async def reschedule_original(
     await db.commit()
     invalidate_for_athlete(athlete.id)
     return RescheduleOriginalResponse(new_workout_id=str(new_workout.id), proposal=proposal)
+
+
+@router.post("/{workout_id}/log-completed", response_model=LogCompletedResponse)
+async def log_completed(
+    workout_id: uuid.UUID,
+    body: LogCompletedRequest,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually mark a planned workout as completed.
+
+    Used when the user logs a workout that was not synced from Garmin
+    (e.g. treadmill run, strength session, missed-sync). Creates a
+    CompletedWorkout (with garmin_activity_id=NULL) and a Reconciliation
+    row at confidence 1.0, and flips the planned workout to status=done.
+    """
+    result = await db.execute(
+        select(PlannedWorkout)
+        .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+        .join(Plan, Cycle.plan_id == Plan.id)
+        .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+    )
+    planned = result.scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    if planned.status in (WorkoutStatus.done, WorkoutStatus.skipped):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot log a {planned.status.value} workout",
+        )
+
+    # Pace handling: explicit string takes precedence; else derive from
+    # distance + duration if both present; else None (e.g. strength).
+    if body.avg_pace_str is not None:
+        avg_pace_s_per_km: int | None = _parse_pace_to_s_per_km(body.avg_pace_str)
+    elif body.distance_mi is not None and body.distance_mi > 0:
+        distance_km = body.distance_mi * 1.609344
+        avg_pace_s_per_km = round((body.duration_min * 60) / distance_km)
+    else:
+        avg_pace_s_per_km = None
+
+    distance_m = (
+        Decimal(str(round(body.distance_mi * 1609.344, 2)))
+        if body.distance_mi is not None
+        else None
+    )
+
+    completed = CompletedWorkout(
+        athlete_id=athlete.id,
+        garmin_activity_id=None,
+        activity_date=planned.scheduled_date,
+        started_at=datetime.combine(planned.scheduled_date, datetime.min.time()),
+        activity_type=_activity_type_for(planned.family),
+        family=planned.family,
+        duration_s=body.duration_min * 60,
+        distance_m=distance_m,
+        avg_hr=body.avg_hr,
+        max_hr=None,
+        avg_pace_s_per_km=avg_pace_s_per_km,
+        elevation_gain_m=None,
+        calories=None,
+        raw_summary_json={"source": "manual_log"},
+    )
+    db.add(completed)
+    await db.flush()
+
+    recon = Reconciliation(
+        athlete_id=athlete.id,
+        planned_id=planned.id,
+        completed_id=completed.id,
+        match_confidence=Decimal("1.0"),
+        deviation_notes_md=body.notes or "",
+        agent_review_md=None,
+        agent_reviewed_at=None,
+    )
+    db.add(recon)
+
+    planned.status = WorkoutStatus.done
+
+    await db.commit()
+    await db.refresh(planned)
+    await db.refresh(completed)
+    await db.refresh(recon)
+
+    invalidate_for_athlete(athlete.id)
+
+    return LogCompletedResponse(
+        planned=PlannedWorkoutOut.model_validate(planned),
+        completed=CompletedWorkoutOut.model_validate(completed),
+        reconciliation=ReconciliationOut.model_validate(recon),
+    )
