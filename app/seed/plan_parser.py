@@ -197,11 +197,18 @@ def _parse_code_block(block: str) -> list[dict]:
     return workouts
 
 
-def parse_plan(plan_path: str) -> dict:
+def parse_plan(plan_path: str, cycle_one_start_date: date | None = None) -> dict:
     """Parse PLAN.md and return structured data for seeding.
 
     Args:
         plan_path: Path to PLAN.md (absolute or relative).
+        cycle_one_start_date: Optional override for Cycle 1's anchor.
+            When supplied, Cycle 1 is shortened from its hardcoded 28-week
+            template by dropping the EARLIEST weeks; the LAST
+            ``(race_date - cycle_one_start_date) // 7`` weeks of the template
+            are retained, with their calendar dates re-anchored so that
+            template-week N's Monday equals the new start (where N is the
+            first surviving template week). Cycles 2 and 3 are unaffected.
 
     Returns:
         Dict with athlete, philosophy, and cycles (including workouts with dates).
@@ -225,10 +232,25 @@ def parse_plan(plan_path: str) -> dict:
         start = cycle_meta["start_date"]
         end = cycle_meta["race_date"]  # race day is end of cycle
 
+        # Reseed Cycle 1 only when an override is supplied AND it differs from default.
+        is_cycle1 = cycle_meta["sequence"] == 1
+        if is_cycle1 and cycle_one_start_date is not None and cycle_one_start_date != start:
+            start, raw_workouts = _reanchor_cycle_one(
+                raw_workouts=raw_workouts,
+                template_total_weeks=cycle_meta["weeks"],
+                race_date=end,
+                new_start=cycle_one_start_date,
+            )
+
+        # Calendar dates are computed relative to the FIRST surviving template
+        # week (week_offset=0 lands on ``start``).
+        first_week_number = raw_workouts[0]["week_number"] if raw_workouts else 1
+
         dated_workouts: list[dict] = []
         for w in raw_workouts:
             day_offset = DAY_OFFSETS.get(w["day"], 0)
-            workout_date = start + timedelta(weeks=w["week_number"] - 1, days=day_offset)
+            week_offset = w["week_number"] - first_week_number
+            workout_date = start + timedelta(weeks=week_offset, days=day_offset)
             title = _build_title(w["type"], w["distance_mi"])
 
             dated_workouts.append(
@@ -262,3 +284,28 @@ def parse_plan(plan_path: str) -> dict:
         "philosophy": philosophy,
         "cycles": cycles,
     }
+
+
+def _reanchor_cycle_one(
+    *,
+    raw_workouts: list[dict],
+    template_total_weeks: int,
+    race_date: date,
+    new_start: date,
+) -> tuple[date, list[dict]]:
+    """Drop earliest weeks of a Cycle 1 template to fit a later start date.
+
+    Returns the (possibly clamped) anchor date and the surviving raw workouts.
+    Surviving workouts are the LAST ``weeks_in_cycle`` template weeks; their
+    ``week_number`` values are preserved (the FIRST surviving week's number is
+    therefore ``template_total_weeks - weeks_in_cycle + 1``).
+    """
+    days_to_race = (race_date - new_start).days
+    # Race day is the Sunday at the end of the final week, so we use ceiling
+    # division to count the partial last week (matches the template, where
+    # 195 days from default start spans 28 calendar weeks Mon→Sun).
+    weeks_in_cycle = max(1, min(template_total_weeks, (days_to_race + 6) // 7))
+    first_surviving_week = template_total_weeks - weeks_in_cycle + 1
+
+    surviving = [w for w in raw_workouts if w["week_number"] >= first_surviving_week]
+    return new_start, surviving
