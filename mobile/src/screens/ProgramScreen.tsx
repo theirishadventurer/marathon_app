@@ -11,7 +11,7 @@ import { CycleLane } from '@/components/program/CycleLane';
 import { StatsPanel } from '@/components/program/StatsPanel';
 import { WeeklyMileageTracker } from '@/components/program/WeeklyMileageTracker';
 import type { RootStackParamList, TabParamList } from '@/navigation/types';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'Program'>,
@@ -62,14 +62,14 @@ export function ProgramScreen() {
           />
         }
       >
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: 24 }}>
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink, letterSpacing: 1,
+            fontFamily: fonts.pixel, fontSize: 16, color: colors.ink, letterSpacing: 1,
           }}>
             PROGRAM
           </Text>
           <Text style={{
-            fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 4,
+            fontFamily: fonts.mono, fontSize: 14, color: colors.inkDim, marginTop: 4,
           }}>
             {planFull.data?.plan_name ?? 'Loading…'}
           </Text>
@@ -83,9 +83,9 @@ export function ProgramScreen() {
 
         {planFull.isError || stats.isError ? (
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.accentDanger, letterSpacing: 0.5,
           }}>
-            COULD NOT LOAD PROGRAM
+            Could not load program
           </Text>
         ) : null}
 
