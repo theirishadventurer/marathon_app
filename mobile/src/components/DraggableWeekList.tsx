@@ -12,7 +12,7 @@ import Animated, {
 import type { PlannedWorkoutOut, WeekOut } from '@/api/types';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { dayName, fromIso, toIso } from '@/lib/dates';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface DayFrame {
   date: string;
@@ -193,17 +193,17 @@ export function DraggableWeekList({
         const isToday = day.date === toIso(new Date());
         return (
           <View key={day.date} className="mb-4">
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
               {isToday && (
-                <Text style={{ color: colors.accentRun, fontFamily: 'PressStart2P', fontSize: 10, marginRight: 6 }}>▸</Text>
+                <Text style={{ color: colors.accentRun, fontFamily: fonts.pixel, fontSize: 10, marginRight: 6 }}>▸</Text>
               )}
               <Text style={{
                 color: isToday ? colors.accentRun : colors.ink,
-                fontFamily: 'PressStart2P', fontSize: 10, letterSpacing: 1,
+                fontFamily: fonts.monoBold, fontSize: 14,
               }}>
-                {dayName(date, 'long').toUpperCase()}
+                {dayName(date, 'long')}
               </Text>
-              <Text style={{ color: colors.inkDim, fontFamily: 'VT323', fontSize: 14, marginLeft: 8 }}>
+              <Text style={{ color: colors.inkDim, fontFamily: fonts.mono, fontSize: 12, marginLeft: 8 }}>
                 {date.getMonth() + 1}/{date.getDate()}
               </Text>
             </View>
@@ -219,7 +219,7 @@ export function DraggableWeekList({
                   backgroundColor: colors.bgPanelAlt,
                   borderWidth: 2, borderColor: colors.line, padding: 14, alignItems: 'center',
                 }}>
-                  <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkMute, letterSpacing: 1 }}>REST</Text>
+                  <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkMute }}>Rest day</Text>
                 </View>
               ) : (
                 day.workouts.map((w) => (

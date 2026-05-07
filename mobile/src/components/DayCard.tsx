@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import type { DayWorkouts, PlannedWorkoutOut } from '@/api/types';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { dayName, fromIso, toIso } from '@/lib/dates';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface Props {
   day: DayWorkouts;
@@ -19,17 +19,17 @@ export function DayCard({ day, onWorkoutPress, onWorkoutWhy }: Props) {
 
   return (
     <View className="mb-4">
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
         {isToday && (
-          <Text style={{ color: colors.accentRun, fontFamily: 'PressStart2P', fontSize: 10, marginRight: 6 }}>▸</Text>
+          <Text style={{ color: colors.accentRun, fontFamily: fonts.pixel, fontSize: 10, marginRight: 6 }}>▸</Text>
         )}
         <Text style={{
           color: isToday ? colors.accentRun : colors.ink,
-          fontFamily: 'PressStart2P', fontSize: 10, letterSpacing: 1,
+          fontFamily: fonts.monoBold, fontSize: 14,
         }}>
-          {dayLabel.toUpperCase()}
+          {dayLabel}
         </Text>
-        <Text style={{ color: colors.inkDim, fontFamily: 'VT323', fontSize: 14, marginLeft: 8 }}>
+        <Text style={{ color: colors.inkDim, fontFamily: fonts.mono, fontSize: 12, marginLeft: 8 }}>
           {dateLabel}
         </Text>
       </View>
@@ -39,7 +39,7 @@ export function DayCard({ day, onWorkoutPress, onWorkoutWhy }: Props) {
           backgroundColor: colors.bgPanelAlt,
           borderWidth: 2, borderColor: colors.line, padding: 14, alignItems: 'center',
         }}>
-          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkMute, letterSpacing: 1 }}>REST</Text>
+          <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.inkMute }}>Rest day</Text>
         </View>
       ) : (
         day.workouts.map((w) => (
