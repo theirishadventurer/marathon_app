@@ -46,10 +46,14 @@ interface Props {
 }
 
 function firstSentence(md: string, max = 90): string {
-  const trimmed = md.trim();
-  if (trimmed.length === 0) return '';
-  const firstStop = trimmed.search(/[.!]/);
-  const chunk = firstStop === -1 ? trimmed : trimmed.slice(0, firstStop + 1);
+  // intent_md may include markdown markers (**bold**, _italic_, `code`, # heading, [link](url));
+  // strip the punctuation that wouldn't render as plain text in this small sub-line.
+  const plain = md.replace(/[_*`#[\]]/g, '').trim();
+  if (plain.length === 0) return '';
+  const firstStop = plain.search(/[.!?]/);
+  const chunk = firstStop === -1 ? plain : plain.slice(0, firstStop + 1);
+  // bare-punctuation chunks (".", "!", "?") render as a meaningless lone glyph; drop them.
+  if (chunk.replace(/[.!?\s]/g, '').length === 0) return '';
   if (chunk.length <= max) return chunk;
   return `${chunk.slice(0, max - 1).trimEnd()}…`;
 }
