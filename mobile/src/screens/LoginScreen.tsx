@@ -6,7 +6,7 @@ import { isAxiosError } from 'axios';
 import { useAuth } from '@/auth/AuthContext';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 export function LoginScreen() {
   const { login } = useAuth();
@@ -38,20 +38,20 @@ export function LoginScreen() {
       >
         <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 24, color: colors.accentHi,
+            fontFamily: fonts.pixel, fontSize: 24, color: colors.accentHi,
             marginBottom: 6, textAlign: 'center',
           }}>
             MARATHON
           </Text>
           <Text style={{
-            fontFamily: 'VT323', fontSize: 18, color: colors.inkDim,
-            marginBottom: 36, textAlign: 'center',
+            fontFamily: fonts.mono, fontSize: 16, color: colors.inkDim,
+            marginBottom: 36, textAlign: 'center', letterSpacing: 0.5,
           }}>
-            ▸ PRESS START
+            ▸ Press start
           </Text>
 
-          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 6 }}>
-            EMAIL
+          <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 6, letterSpacing: 0.5 }}>
+            Email
           </Text>
           <RetroBorder background={colors.bgPanelAlt} style={{ marginBottom: 14 }}>
             <TextInput
@@ -67,8 +67,8 @@ export function LoginScreen() {
             />
           </RetroBorder>
 
-          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginBottom: 6 }}>
-            PASSWORD
+          <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginBottom: 6, letterSpacing: 0.5 }}>
+            Password
           </Text>
           <RetroBorder background={colors.bgPanelAlt} style={{ marginBottom: 14 }}>
             <TextInput
@@ -83,7 +83,7 @@ export function LoginScreen() {
           </RetroBorder>
 
           {error !== null && (
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, marginBottom: 12 }}>
+            <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.accentDanger, marginBottom: 12, letterSpacing: 0.5 }}>
               ! {error}
             </Text>
           )}
