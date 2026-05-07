@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import type { CycleFull, WeekRollup } from '@/api/types';
 import { RaceMilestoneTile } from '@/components/program/RaceMilestoneTile';
 import { WeekTile } from '@/components/program/WeekTile';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface Props {
   cycle: CycleFull;
@@ -28,12 +28,12 @@ export function CycleLane({ cycle, onWeekPress, onRacePress }: Props) {
     <View style={{ flex: 1, marginHorizontal: 4 }}>
       <View style={{ marginBottom: 8 }}>
         <Text style={{
-          fontFamily: 'PressStart2P', fontSize: 10, color: colors.ink, letterSpacing: 1,
+          fontFamily: fonts.monoBold, fontSize: 14, color: colors.ink,
         }}>
           P{cycle.sequence} {(cycle.race_name.split(' ')[0] ?? cycle.race_name).toUpperCase()}
         </Text>
         <Text style={{
-          fontFamily: 'VT323', fontSize: 14, color: colors.inkDim, marginTop: 2,
+          fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim, marginTop: 2,
         }}>
           {cycle.weeks.length} weeks
         </Text>
