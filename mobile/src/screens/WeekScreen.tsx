@@ -16,7 +16,7 @@ import { useDragMove } from '@/hooks/useDragMove';
 import { useEditFlow } from '@/hooks/useEditFlow';
 import { addDays, fromIso, startOfWeek, toIso } from '@/lib/dates';
 import type { RootStackParamList, TabParamList } from '@/navigation/types';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 function formatWeekLabel(weekStartIso: string): string {
   const start = fromIso(weekStartIso);
@@ -100,20 +100,20 @@ export function WeekScreen() {
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Pressable onPress={goPrev} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink }}>‹</Text>
+            <Text style={{ fontFamily: fonts.pixel, fontSize: 16, color: colors.ink }}>‹</Text>
           </Pressable>
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontFamily: 'VT323', fontSize: 18, color: colors.ink }}>{weekLabel}</Text>
+            <Text style={{ fontFamily: fonts.monoBold, fontSize: 16, color: colors.ink }}>{weekLabel}</Text>
             {plan.data?.cycle_progress !== null && plan.data?.cycle_progress !== undefined && (
               <Text style={{
-                fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1, marginTop: 4,
+                fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5, marginTop: 4,
               }}>
                 WK {plan.data.cycle_progress.week} / {plan.data.cycle_progress.total_weeks}
               </Text>
             )}
           </View>
           <Pressable onPress={goNext} hitSlop={10} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 16, color: colors.ink }}>›</Text>
+            <Text style={{ fontFamily: fonts.pixel, fontSize: 16, color: colors.ink }}>›</Text>
           </Pressable>
         </View>
         <Pressable
@@ -122,9 +122,9 @@ export function WeekScreen() {
           style={{ alignSelf: 'center', marginTop: 8 }}
         >
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentRun, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.accentRun, letterSpacing: 0.5,
           }}>
-            ▸ JUMP TO TODAY
+            ▸ Jump to today
           </Text>
         </Pressable>
       </View>
@@ -146,9 +146,9 @@ export function WeekScreen() {
         )}
         {week.isError && (
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentDanger, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.accentDanger, letterSpacing: 0.5,
           }}>
-            COULD NOT LOAD WEEK
+            Could not load week
           </Text>
         )}
         {week.data !== undefined && (
