@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import BottomSheet from '@gorhom/bottom-sheet';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isAxiosError } from 'axios';
@@ -9,6 +10,8 @@ import { useAuth } from '@/auth/AuthContext';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
+import { StartDateSheet } from '@/components/StartDateSheet';
+import { toIso } from '@/lib/dates';
 import { colors, fonts } from '@/theme/tokens';
 
 function timeAgo(iso: string | null): string {
@@ -113,6 +116,10 @@ export function SettingsScreen() {
   const sync = useManualSync();
   const [showReauth, setShowReauth] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const startDateSheetRef = useRef<BottomSheet>(null);
+  const today = toIso(new Date());
+  const openStartDate = () => startDateSheetRef.current?.snapToIndex(0);
+  const closeStartDate = () => startDateSheetRef.current?.close();
 
   const onSync = async () => {
     setSyncMsg(null);
@@ -157,6 +164,9 @@ export function SettingsScreen() {
                     Week {plan.data.cycle_progress.week} of {plan.data.cycle_progress.total_weeks} · {plan.data.cycle_progress.days_to_race} days to race
                   </Text>
                 )}
+                <View style={{ marginTop: 14 }}>
+                  <RetroButton label="Reset start date" onPress={openStartDate} />
+                </View>
               </View>
             )}
           </View>
@@ -248,6 +258,11 @@ export function SettingsScreen() {
           />
         </View>
       </ScrollView>
+      <StartDateSheet
+        ref={startDateSheetRef}
+        defaultDate={today}
+        onClose={closeStartDate}
+      />
     </SafeAreaView>
   );
 }
