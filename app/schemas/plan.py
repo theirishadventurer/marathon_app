@@ -134,3 +134,25 @@ class PlanStatsOut(BaseModel):
     next_milestone: NextMilestone | None = None
     peak_week: PeakWeekSummary | None = None
     computed_at: datetime
+
+
+class StartDateRequest(BaseModel):
+    new_start_date: date
+
+
+class StartDateImpact(BaseModel):
+    completed_kept: int
+    completed_dropped: int
+    done_planned_kept: int
+    skipped_planned_kept: int
+    planned_dropped: int
+    proposals_discarded: int
+    new_cycle1_weeks: int
+    new_cycle1_start: date
+    new_cycle1_end: date
+
+
+class StartDateResponse(BaseModel):
+    dry_run: bool
+    impact: StartDateImpact
+    plan: PlanCurrentOut | None = None

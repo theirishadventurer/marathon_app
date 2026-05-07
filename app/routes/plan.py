@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import asdict
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -18,10 +20,15 @@ from app.schemas.plan import (
     PlanFullOut,
     PlannedWorkoutOut,
     PlanStatsOut,
+    StartDateImpact,
+    StartDateRequest,
+    StartDateResponse,
     TodayOut,
     WeekOut,
 )
+from app.services.cache_invalidation import invalidate_for_athlete
 from app.services.plan_aggregator import build_plan_full, build_plan_stats
+from app.services.plan_reseed import apply_reseed, compute_reseed_impact
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -56,14 +63,11 @@ async def _active_cycle(db: AsyncSession, plan_id, today: datetime.date) -> Cycl
     return result.scalar_one_or_none()
 
 
-@router.get("/current", response_model=PlanCurrentOut)
-async def plan_current(
-    athlete: Athlete = Depends(get_current_athlete),
-    db: AsyncSession = Depends(get_db),
-):
-    plan = await _active_plan(db, athlete.id)
+async def _build_plan_current(db: AsyncSession, athlete_id: UUID) -> PlanCurrentOut | None:
+    """Build the PlanCurrentOut payload, or None if there's no active plan."""
+    plan = await _active_plan(db, athlete_id)
     if plan is None:
-        raise HTTPException(status_code=404, detail="No active plan")
+        return None
 
     today = datetime.date.today()
     cycle = await _active_cycle(db, plan.id, today)
@@ -86,6 +90,17 @@ async def plan_current(
         active_cycle=cycle_out,
         cycle_progress=progress,
     )
+
+
+@router.get("/current", response_model=PlanCurrentOut)
+async def plan_current(
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await _build_plan_current(db, athlete.id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="No active plan")
+    return payload
 
 
 @router.get("/today", response_model=TodayOut)
@@ -167,3 +182,40 @@ async def plan_stats(
     if scope not in ("cycle", "plan"):
         raise HTTPException(status_code=400, detail="scope must be 'cycle' or 'plan'")
     return await build_plan_stats(db, athlete.id, scope=scope)  # type: ignore[arg-type]
+
+
+@router.post("/start-date", response_model=StartDateResponse)
+async def update_start_date(
+    body: StartDateRequest,
+    dry_run: bool = Query(default=False),
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reseed the plan to a new Cycle 1 start date (Session 2.7 Phase 0 Q0.1).
+
+    With ``?dry_run=true`` returns the impact preview only — no DB writes.
+    Otherwise applies the reseed: drops Cycle-1 incomplete planned/moved
+    rows (and any pre-new-start done/skipped), re-emits a fresh Cycle 1
+    from PLAN.md anchored at ``new_start_date``, discards pending agent
+    proposals, writes a ``plan_history`` row, and busts athlete caches.
+    """
+    if body.new_start_date < datetime.date.today():
+        raise HTTPException(status_code=400, detail="new_start_date must be today or later")
+
+    if dry_run:
+        impact = await compute_reseed_impact(db, athlete.id, body.new_start_date)
+        return StartDateResponse(
+            dry_run=True,
+            impact=StartDateImpact(**asdict(impact)),
+            plan=None,
+        )
+
+    impact = await apply_reseed(db, athlete.id, body.new_start_date)
+    invalidate_for_athlete(athlete.id)
+
+    plan_view = await _build_plan_current(db, athlete.id)
+    return StartDateResponse(
+        dry_run=False,
+        impact=StartDateImpact(**asdict(impact)),
+        plan=plan_view,
+    )
