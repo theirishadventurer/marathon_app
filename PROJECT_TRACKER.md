@@ -9,6 +9,7 @@
 | Session 2.5 — Workout edit + NES retro polish | ✅ Done | `session-2/backend-move-endpoints` | In-place workout edit, displaced-original flow, full NES restyle |
 | Session 2.6 — UX polish + Program tab + Weekly Mileage Tracker | ✅ Done | `session-2/backend-move-endpoints` | Smoother-NES polish, Program tab with 3-lane world map + cycle-scoped mileage chart |
 | Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish | ✅ Done | `session-2/backend-move-endpoints` | Four parallel features: log-completed flow, recent-runs strip + computed coach brief on Today, start-date reseed with dry_run preview + plan_history audit, typography sweep retiring PressStart2P from content sizes |
+| Session 2.8 — Strava integration (alternative to Garmin scraping) | ⏳ Backlog | — | OAuth + webhook ingestion path. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. Goal: replace fragile `garminconnect` scraping with stable Strava official API. Garmin→Strava is a native one-tap setting users already have. |
 | Session 3 — Daily Coach, Run Analyst, free-form chat | ⏳ Backlog | — | See `SESSION_3.md` |
 
 ## Sprint History
