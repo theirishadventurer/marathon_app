@@ -33,8 +33,8 @@ export function TodayScreen() {
   const plan = usePlanCurrent();
   const recent = useRecentCompleted(5);
   const sync = useSync();
-  const todayIsoStr = toIso(new Date());
-  const tomorrowIsoStr = toIso(addDays(new Date(), 1));
+  const todayIsoStr = useMemo(() => toIso(new Date()), []);
+  const tomorrowIsoStr = useMemo(() => toIso(addDays(new Date(), 1)), []);
   const week = usePlanWeek(todayIsoStr);
   const [dayChoice, setDayChoice] = useState<DayChoice>('TODAY');
 
@@ -58,6 +58,9 @@ export function TodayScreen() {
     : tomorrowWorkouts;
 
   const sectionLabel = dayChoice === 'TODAY' ? "Today's session" : "Tomorrow's session";
+
+  const isLoading = dayChoice === 'TODAY' ? today.isLoading : week.isLoading;
+  const isError = dayChoice === 'TODAY' ? today.isError : week.isError;
 
   const subhead = useMemo(() => {
     const planName = plan.data?.plan_name ?? 'MARATHON_TRILOGY';
@@ -134,11 +137,11 @@ export function TodayScreen() {
 
           <SectionHeader label={sectionLabel} />
 
-          {today.isLoading || week.isLoading ? (
+          {isLoading ? (
             <View style={{ alignItems: 'center', paddingVertical: 40 }}>
               <ActivityIndicator color={colors.accentRun} />
             </View>
-          ) : (today.isError || week.isError) ? (
+          ) : isError ? (
             <Text style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.accentDanger, letterSpacing: 0.5 }}>
               Could not load.
             </Text>
