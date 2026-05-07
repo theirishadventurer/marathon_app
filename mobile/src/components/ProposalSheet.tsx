@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import type { AdapterOption, ApplyChoice, ProposalOut } from '@/api/types';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface Props {
   proposal: ProposalOut | null;
@@ -26,19 +26,19 @@ function OptionCard({
   return (
     <RetroBorder style={{ marginBottom: 12 }}>
       <View style={{ padding: 14 }}>
-        <Text style={{ fontFamily: 'PressStart2P', fontSize: 10, color: colors.ink }}>
-          {option.label.toUpperCase()}
+        <Text style={{ fontFamily: fonts.monoBold, fontSize: 14, color: colors.ink }}>
+          {option.label}
         </Text>
-        <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.inkDim, marginTop: 4 }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 16, color: colors.inkDim, marginTop: 4 }}>
           {option.tradeoff}
         </Text>
         <Pressable onPress={onToggle} hitSlop={6}>
-          <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.accentRun, marginTop: 8 }}>
-            {expanded ? '▾ HIDE' : '▸ WHY THIS'}
+          <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.accentRun, marginTop: 8, letterSpacing: 0.5 }}>
+            {expanded ? '▾ Hide' : '▸ Why this'}
           </Text>
         </Pressable>
         {expanded && (
-          <Text style={{ fontFamily: 'VT323', fontSize: 16, color: colors.ink, marginTop: 8, lineHeight: 20 }}>
+          <Text style={{ fontFamily: fonts.body, fontSize: 16, color: colors.ink, marginTop: 8, lineHeight: 20 }}>
             {option.rationale}
           </Text>
         )}
@@ -70,16 +70,16 @@ export const ProposalSheet = forwardRef<BottomSheet, Props>(function ProposalShe
         {proposal === null ? (
           <View style={{ alignItems: 'center', paddingVertical: 24 }}>
             <ActivityIndicator color={colors.accentRun} />
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, marginTop: 12, letterSpacing: 1 }}>
-              COACH IS THINKING…
+            <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginTop: 12, letterSpacing: 0.5 }}>
+              Coach is thinking…
             </Text>
           </View>
         ) : (
           <View>
-            <Text style={{ fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1 }}>
-              PROPOSED REBALANCE
+            <Text style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5 }}>
+              Proposed rebalance
             </Text>
-            <Text style={{ fontFamily: 'VT323', fontSize: 22, color: colors.ink, marginTop: 6, marginBottom: 16, lineHeight: 26 }}>
+            <Text style={{ fontFamily: fonts.body, fontSize: 22, color: colors.ink, marginTop: 6, marginBottom: 16, lineHeight: 26 }}>
               {proposal.summary}
             </Text>
 
