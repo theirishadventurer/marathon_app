@@ -7,12 +7,18 @@ import { isAxiosError } from 'axios';
 import { useGarminReauth, useGarminStatus, useManualSync } from '@/api/hooks/useGarmin';
 import { usePlanCurrent } from '@/api/hooks/usePlan';
 import { useAuth } from '@/auth/AuthContext';
+import { BrandBanner } from '@/components/BrandBanner';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StartDateSheet } from '@/components/StartDateSheet';
 import { toIso } from '@/lib/dates';
 import { colors, fonts } from '@/theme/tokens';
+
+// FUTURE: thread athlete email from /athletes/me or a user-aware AuthContext.
+// For now, the BrandBanner subhead is a placeholder — the spec called for an
+// email that the auth layer doesn't expose yet.
+const SETTINGS_SUBHEAD = 'ATHLETE — runner@marathon.dev';
 
 function timeAgo(iso: string | null): string {
   if (iso === null) return 'never';
@@ -137,14 +143,10 @@ export function SettingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={{
-          fontFamily: fonts.pixel, fontSize: 16, color: colors.ink, letterSpacing: 1, marginBottom: 24,
-        }}>
-          SETTINGS
-        </Text>
-
-        <SectionHeader label="Plan" />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        <BrandBanner subhead={SETTINGS_SUBHEAD} />
+        <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+          <SectionHeader label="Plan" />
         <RetroBorder style={{ marginBottom: 24 }}>
           <View style={{ padding: 14 }}>
             {plan.data === undefined ? (
@@ -250,12 +252,13 @@ export function SettingsScreen() {
 
         {showReauth && <GarminReauth onDone={() => { setShowReauth(false); }} />}
 
-        <View style={{ marginTop: 40 }}>
-          <RetroButton
-            tone="danger"
-            label="Sign out"
-            onPress={() => { void logout(); }}
-          />
+          <View style={{ marginTop: 40 }}>
+            <RetroButton
+              tone="danger"
+              label="Sign out"
+              onPress={() => { void logout(); }}
+            />
+          </View>
         </View>
       </ScrollView>
       <StartDateSheet
