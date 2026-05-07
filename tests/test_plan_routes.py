@@ -17,7 +17,25 @@ async def test_plan_today_returns_shape(seeded_client: AsyncClient, seeded_auth_
     body = resp.json()
     assert "date" in body
     assert isinstance(body["workouts"], list)
-    assert body["coach_brief"] is None
+    # Brief is populated for the seeded fixture (today falls inside the plan).
+    assert body["coach_brief"] is not None
+
+
+@pytest.mark.asyncio
+async def test_plan_today_populates_coach_brief(
+    seeded_client: AsyncClient, seeded_auth_headers: dict
+):
+    response = await seeded_client.get(
+        "/plan/today",
+        headers=seeded_auth_headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # Brief should be populated (non-None) for the seeded fixture
+    assert body["coach_brief"] is not None
+    assert isinstance(body["coach_brief"], str)
+    assert len(body["coach_brief"]) > 0
+    assert len(body["coach_brief"]) <= 280
 
 
 @pytest.mark.asyncio

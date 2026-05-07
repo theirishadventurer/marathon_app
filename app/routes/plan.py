@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import time
+import uuid
 from dataclasses import asdict
 from uuid import UUID
 
@@ -11,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_current_athlete, get_db
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
-from app.models.workout import PlannedWorkout
+from app.models.reconciliation import Reconciliation
+from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutStatus, WorkoutType
 from app.schemas.plan import (
     CycleOut,
     CycleProgress,
@@ -27,10 +30,21 @@ from app.schemas.plan import (
     WeekOut,
 )
 from app.services.cache_invalidation import invalidate_for_athlete
+from app.services.coach_brief import compose_coach_brief
 from app.services.plan_aggregator import build_plan_full, build_plan_stats
 from app.services.plan_reseed import apply_reseed, compute_reseed_impact
 
 router = APIRouter(prefix="/plan", tags=["plan"])
+
+
+# 60s per-athlete cache for the heuristic coach brief on /plan/today.
+# Cleared by cache_invalidation umbrella on any athlete-state mutation.
+_COACH_BRIEF_CACHE: dict[uuid.UUID, tuple[float, str | None]] = {}
+_COACH_BRIEF_TTL_S = 60.0
+
+
+def _clear_coach_brief_cache(athlete_id: uuid.UUID) -> None:
+    _COACH_BRIEF_CACHE.pop(athlete_id, None)
 
 
 async def _active_plan(db: AsyncSession, athlete_id) -> Plan | None:
@@ -120,10 +134,89 @@ async def plan_today(
         )
         workouts = list(result.scalars().all())
 
+    # Coach brief — heuristic, 60s per-athlete cache.
+    cached = _COACH_BRIEF_CACHE.get(athlete.id)
+    now = time.monotonic()
+    if cached is not None and now - cached[0] < _COACH_BRIEF_TTL_S:
+        brief = cached[1]
+    else:
+        brief = await _build_coach_brief(db, athlete, plan, workouts, today)
+        _COACH_BRIEF_CACHE[athlete.id] = (time.monotonic(), brief)
+
     return TodayOut(
         date=today,
         workouts=[PlannedWorkoutOut.model_validate(w) for w in workouts],
-        coach_brief=None,
+        coach_brief=brief,
+    )
+
+
+async def _build_coach_brief(
+    db: AsyncSession,
+    athlete: Athlete,
+    plan: Plan | None,
+    workouts: list[PlannedWorkout],
+    today: datetime.date,
+) -> str | None:
+    """Assemble inputs and call ``compose_coach_brief``.
+
+    Pulls yesterday's matched completion, last-5-day adherence, and the
+    active cycle's race info. Returns the brief string or ``None``.
+    """
+    yesterday = today - datetime.timedelta(days=1)
+    yesterday_completion: CompletedWorkout | None = None
+    days_to_race: int | None = None
+    race_name: str | None = None
+    last_5_days_adherence: float | None = None
+
+    if plan is not None:
+        # Yesterday's completion via reconciliation
+        result = await db.execute(
+            select(CompletedWorkout)
+            .join(Reconciliation, Reconciliation.completed_id == CompletedWorkout.id)
+            .join(PlannedWorkout, Reconciliation.planned_id == PlannedWorkout.id)
+            .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+            .where(
+                Cycle.plan_id == plan.id,
+                PlannedWorkout.scheduled_date == yesterday,
+            )
+            .order_by(CompletedWorkout.started_at.desc())
+            .limit(1)
+        )
+        yesterday_completion = result.scalar_one_or_none()
+
+        # Last 5 days' adherence: ratio of done-or-moved over scheduled
+        # non-rest planned rows in [today-5, today-1].
+        window_start = today - datetime.timedelta(days=5)
+        adh_result = await db.execute(
+            select(PlannedWorkout)
+            .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+            .where(
+                Cycle.plan_id == plan.id,
+                PlannedWorkout.scheduled_date >= window_start,
+                PlannedWorkout.scheduled_date <= yesterday,
+                PlannedWorkout.type != WorkoutType.rest,
+            )
+        )
+        adh_rows = list(adh_result.scalars().all())
+        if adh_rows:
+            done = sum(
+                1 for r in adh_rows if r.status in (WorkoutStatus.done, WorkoutStatus.moved)
+            )
+            last_5_days_adherence = done / len(adh_rows)
+
+        # Active cycle for race info
+        cycle = await _active_cycle(db, plan.id, today)
+        if cycle is not None:
+            race_name = cycle.race_name
+            days_to_race = (cycle.race_date - today).days
+
+    return compose_coach_brief(
+        today=today,
+        todays_workouts=workouts,
+        yesterday_completion=yesterday_completion,
+        days_to_race=days_to_race,
+        last_5_days_adherence=last_5_days_adherence,
+        race_name=race_name,
     )
 
 

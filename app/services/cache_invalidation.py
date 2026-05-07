@@ -12,14 +12,14 @@ def invalidate_for_athlete(athlete_id: UUID) -> None:
     Currently fans out to:
     - plan_aggregator's plan_full + plan_stats caches
     - workouts route's recent-completed cache
-
-    Phase 2 tasks will extend this fan-out as new caches land
-    (coach_brief in 2.B2).
+    - plan route's coach-brief cache
     """
     _invalidate_plan(athlete_id)
 
-    # Lazy import: app.routes.workouts imports from this module, so a
-    # top-level import here would create a circular dependency at startup.
+    # Lazy imports: routes import from this module, so top-level imports
+    # here would create a circular dependency at startup.
+    from app.routes.plan import _clear_coach_brief_cache
     from app.routes.workouts import _clear_recent_completed_cache
 
     _clear_recent_completed_cache(athlete_id)
+    _clear_coach_brief_cache(athlete_id)
