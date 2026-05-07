@@ -4,6 +4,7 @@ from app.models.base import Base
 from app.models.garmin import GarminAuthState
 from app.models.metrics import DailyMetric
 from app.models.plan import Cycle, Plan
+from app.models.plan_history import PlanHistory
 from app.models.reconciliation import Reconciliation
 from app.models.workout import (
     CompletedWorkout,
@@ -24,6 +25,7 @@ __all__ = [
     "GarminAuthState",
     "MessageRole",
     "Plan",
+    "PlanHistory",
     "PlannedWorkout",
     "Reconciliation",
     "WorkoutFamily",

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.athlete import Athlete
+    from app.models.plan_history import PlanHistory
     from app.models.workout import PlannedWorkout
 
 from sqlalchemy import Boolean, Date, ForeignKey, SmallInteger, Text, func
@@ -31,6 +32,9 @@ class Plan(UUIDMixin, Base):
     # Relationships
     athlete: Mapped["Athlete"] = relationship(back_populates="plans")
     cycles: Mapped[list["Cycle"]] = relationship(back_populates="plan")
+    history: Mapped[list["PlanHistory"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan"
+    )
 
 
 class Cycle(UUIDMixin, Base):
