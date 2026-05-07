@@ -271,3 +271,26 @@ export interface LogCompletedResponse {
   completed: CompletedWorkoutOut;
   reconciliation: ReconciliationOut;
 }
+
+// Feat C — start-date reset
+export interface StartDateRequest {
+  new_start_date: IsoDate;
+}
+
+export interface StartDateImpact {
+  completed_kept: number;
+  completed_dropped: number;
+  done_planned_kept: number;
+  skipped_planned_kept: number;
+  planned_dropped: number;
+  proposals_discarded: number;
+  new_cycle1_weeks: number;
+  new_cycle1_start: IsoDate;
+  new_cycle1_end: IsoDate;
+}
+
+export interface StartDateResponse {
+  dry_run: boolean;
+  impact: StartDateImpact;
+  plan: PlanCurrentOut | null;
+}
