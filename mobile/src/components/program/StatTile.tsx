@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { RetroBorder } from '@/components/retro/RetroBorder';
-import { colors } from '@/theme/tokens';
+import { colors, fonts } from '@/theme/tokens';
 
 interface Props {
   label: string;
@@ -14,20 +14,20 @@ export function StatTile({ label, value, sub, flex = 1 }: Props) {
   return (
     <View style={{ flex, marginHorizontal: 4 }}>
       <RetroBorder>
-        <View style={{ padding: 12, minHeight: 76 }}>
+        <View style={{ padding: 12, minHeight: 80 }}>
           <Text style={{
-            fontFamily: 'PressStart2P', fontSize: 8, color: colors.inkDim, letterSpacing: 1,
+            fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, letterSpacing: 0.5,
           }}>
-            {label.toUpperCase()}
+            {label}
           </Text>
           <Text style={{
-            fontFamily: 'VT323', fontSize: 22, color: colors.ink, marginTop: 4,
+            fontFamily: fonts.monoBold, fontSize: 22, color: colors.ink, marginTop: 4,
           }}>
             {value}
           </Text>
           {sub !== undefined && (
             <Text style={{
-              fontFamily: 'VT323', fontSize: 14, color: colors.inkDim, marginTop: 2,
+              fontFamily: fonts.mono, fontSize: 12, color: colors.inkDim, marginTop: 2,
             }}>
               {sub}
             </Text>
