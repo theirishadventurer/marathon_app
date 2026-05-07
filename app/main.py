@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
@@ -17,6 +18,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Marathon Coach", lifespan=lifespan)
+
+# Permissive CORS for local dev (Expo web on :8081 hitting API on :8000).
+# Tighten before any non-local deployment.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
+
 app.include_router(auth_router)
 app.include_router(garmin_router)
 app.include_router(admin_router)

@@ -20,10 +20,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const stored = await loadToken();
-      if (!cancelled) {
-        setToken(stored);
-        setLoading(false);
+      try {
+        const stored = await loadToken();
+        if (!cancelled) {
+          setToken(stored);
+        }
+      } catch {
+        // storage unavailable — treat as logged out
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
