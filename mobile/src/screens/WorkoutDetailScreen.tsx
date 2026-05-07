@@ -173,7 +173,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const isSkipped = detail.data?.planned?.status === 'skipped';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <BrandBanner
         subhead={
           detail.data?.planned !== null && detail.data?.planned !== undefined
