@@ -52,6 +52,14 @@ export function WeekScreen() {
   const todayCode = isoToDayCode(todayIsoStr);
   const [selectedDay, setSelectedDay] = useState<DayCode>(todayCode);
 
+  // Reset selectedDay when cursor changes weeks: MON for any non-current week,
+  // today's code when viewing today's week.
+  useEffect(() => {
+    const weekStart = toIso(startOfWeek(fromIso(cursorIso)));
+    const todayWeekStart = toIso(startOfWeek(fromIso(todayIsoStr)));
+    setSelectedDay(weekStart === todayWeekStart ? todayCode : 'MON');
+  }, [cursorIso, todayCode, todayIsoStr]);
+
   const weekStartIso = flow.editTarget !== null
     ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
     : null;
