@@ -17,7 +17,6 @@ import { ProposalSheet } from '@/components/ProposalSheet';
 import { RecentRunSheet } from '@/components/RecentRunSheet';
 import { RecentRunsStrip } from '@/components/RecentRunsStrip';
 import { SectionHeader } from '@/components/SectionHeader';
-import { WhySheet } from '@/components/WhySheet';
 import { WorkoutCard } from '@/components/WorkoutCard';
 import { useEditFlow } from '@/hooks/useEditFlow';
 import { addDays, fromIso, startOfWeek, toIso } from '@/lib/dates';
@@ -38,9 +37,7 @@ export function TodayScreen() {
   const week = usePlanWeek(todayIsoStr);
   const [dayChoice, setDayChoice] = useState<DayChoice>('TODAY');
 
-  const sheetRef = useRef<BottomSheet>(null);
   const recentSheetRef = useRef<BottomSheet>(null);
-  const [whyWorkout] = useState<PlannedWorkoutOut | null>(null);
   const [recentSelected, setRecentSelected] = useState<CompletedWorkoutOut | null>(null);
   const flow = useEditFlow();
   const weekStartIso = flow.editTarget !== null
@@ -92,8 +89,6 @@ export function TodayScreen() {
       },
     });
   };
-
-  const closeWhy = () => { sheetRef.current?.close(); };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
@@ -194,7 +189,6 @@ export function TodayScreen() {
         </View>
       </ScrollView>
 
-      <WhySheet ref={sheetRef} workout={whyWorkout} onClose={closeWhy} />
       <EditQuestSheet
         ref={flow.editRef}
         workout={flow.editTarget}
