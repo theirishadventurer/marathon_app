@@ -1,18 +1,20 @@
 # Project Memory
 
-## Current Status (2026-05-07, Session 2.7)
+## Current Status (2026-05-08, Session 2.8)
 
-**Branch:** `session-2/backend-move-endpoints` (~110 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7)
+**Branch:** `session-2/backend-move-endpoints` (~131 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7 / 2.8)
 
 **State:**
-- Backend: 104/104 tests pass, ruff clean. Endpoints: auth, plan/today/week/current/full/stats/start-date, workouts CRUD + move/apply-move/reschedule-original/skip/log-completed, workouts/completed/recent, garmin reauth/status/sync, metrics/recent.
-- Mobile: JetBrains Mono Bold/Regular for content + PressStart2P only for badges/brand/tabs. Mark-Done flow on WorkoutDetail. Reset start-date flow on Settings. Recent runs strip + computed coach brief on Today. Typecheck clean.
+- Backend: untouched this sprint. 104/104 tests pass, ruff clean. Endpoints: auth, plan/today/week/current/full/stats/start-date, workouts CRUD + move/apply-move/reschedule-original/skip/log-completed, workouts/completed/recent, garmin reauth/status/sync, metrics/recent.
+- Mobile: Staycation IA + visual overhaul shipped. BrandBanner on every content screen. Today uses `TODAY | TOMORROW` DayToggle; Week uses 7-seg `MON…SUN`. WorkoutCard rewritten (no inline Why/Edit; chevron affordance). Tab bar active-pill (filled phosphor green). WorkoutDetail uses BrandBanner + Back/Edit chip row + BottomActionBar. WhySheet retired. Typecheck clean.
 - DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`. `plan_history` table records reseed events.
 - Dev: Docker Desktop on Windows/WSL2; volume gets wiped on `docker compose down` so re-migrate + re-seed after each cycle.
 
 **Open:**
-- Session 2.5 work not yet merged to `master`. User to smoke-test, then merge.
+- Sessions 2.5–2.8 work not yet merged to `master`. User to smoke-test, then merge.
+- Strava integration is the leading backlog item (OAuth + webhook path) — replaces fragile `garminconnect` scraping.
 - Session 3 design / planning (Daily Coach, Run Analyst, free-form chat) is the next session's brainstorm.
+- Tracked follow-ups: 7-day toggle narrow-phone fallback (single-letter codes); `DraggableWeekList` per-day `onDayLayout(date, y)` so the 7-seg toggle can scroll-anchor.
 
 ## Cross-Session Lessons
 
@@ -54,6 +56,13 @@
 - **`SectionHeader` cyan mixed-case mono w/ `▸` caret** is the legibility win over `PressStart2P fontSize 8` all-caps headers. Pixel font for headers below 10pt is unreadable on smaller phones.
 - **Soft borders (1px slate) + 4–6px corners + no offset shadow** reads as polished retro without looking dated. The lifted bgPanel tone provides elevation; hard offset shadows stack visually and flatten hierarchy.
 - **Filled-rounded badge variant** for family/platform tags (NES/SNES style); bracket-style `[ PLANNED ]` reserved for status text where the matrix-terminal vibe still works.
+
+### Mobile / Navigation v7 quirks
+- **react-navigation v7 selected-tab signal is `aria-selected`**, not `accessibilityState.selected` (the v6 prop). When wiring a custom `tabBarButton` to render an active-pill behind the icon+label, read `props['aria-selected']` (typed as `boolean | undefined`) — the old prop never fires under v7 and the pill stays dark.
+- **`SafeAreaView` + `BottomActionBar` interaction.** When a screen ends in a sibling-layout BottomActionBar that already adds `insets.bottom` to its own padding, wrap the screen `SafeAreaView` with `edges={['top']}`. Default edges double-pad the home indicator and visually push the action bar up by the same amount twice.
+
+### Mobile / Text rendering
+- **`firstSentence` extractor needs markdown strip + `?` terminator + bare-punct guard.** A subline cut from a richer description (markdown bold/italics, multi-sentence) needs all three or you ship `**Tempo run**` literal markers, miss `?` endings, or trail off with a stray `,`/`-`. Caught by manual smoke on the rewritten WorkoutCard, not by typecheck.
 
 ### Process / Workflow
 - **TDD discipline pays off** for backend changes — pytest red→green per task surfaced bugs early (e.g., the alias→validation_alias bug, the enum-coercion artifact).

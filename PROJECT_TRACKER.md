@@ -9,10 +9,41 @@
 | Session 2.5 — Workout edit + NES retro polish | ✅ Done | `session-2/backend-move-endpoints` | In-place workout edit, displaced-original flow, full NES restyle |
 | Session 2.6 — UX polish + Program tab + Weekly Mileage Tracker | ✅ Done | `session-2/backend-move-endpoints` | Smoother-NES polish, Program tab with 3-lane world map + cycle-scoped mileage chart |
 | Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish | ✅ Done | `session-2/backend-move-endpoints` | Four parallel features: log-completed flow, recent-runs strip + computed coach brief on Today, start-date reseed with dry_run preview + plan_history audit, typography sweep retiring PressStart2P from content sizes |
-| Session 2.8 — Strava integration (alternative to Garmin scraping) | ⏳ Backlog | — | OAuth + webhook ingestion path. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. Goal: replace fragile `garminconnect` scraping with stable Strava official API. Garmin→Strava is a native one-tap setting users already have. |
+| Session 2.8 — Staycation IA + visual overhaul | ✅ Done | `session-2/backend-move-endpoints` | BrandBanner + DayToggle + WorkoutCard rewrite + tab active-pill + WhySheet retired (presentation-only; no API change) |
+| Strava integration (alternative to Garmin scraping) | ⏳ Backlog | — | OAuth + webhook ingestion path. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. Goal: replace fragile `garminconnect` scraping with stable Strava official API. Garmin→Strava is a native one-tap setting users already have. |
 | Session 3 — Daily Coach, Run Analyst, free-form chat | ⏳ Backlog | — | See `SESSION_3.md` |
 
 ## Sprint History
+
+### Session 2.8 — Staycation IA + Visual Overhaul (2026-05-07 → 2026-05-08)
+
+**Goal:** Restructure mobile content screens to match the staycation.exe reference — branded banner, segmented day toggles, restyled card composition (no inline buttons, chevron affordance), filled-pill active tab — without changing data model, API, or navigation tree.
+
+**Status:** ✅ Complete. ~16 plan tasks across 5 phases, 21 commits, mobile typecheck clean. Backend untouched.
+
+**Mobile deliverables:**
+- New `BrandBanner` (wordmark + `▸` caret subhead + 1px slate rule) on every content screen
+- New generic `DayToggle<T>` segmented pill — used as 2-seg `TODAY | TOMORROW` on Today and 7-seg `MON…SUN` on Week
+- New `BottomActionBar` (safe-area-aware sibling-layout action row) — used by WorkoutDetail for MARK DONE / SKIP
+- `WorkoutCard` rewritten to staycation composition: meta + family badge + status badge + chevron + monoBold title + lighter mono sub; `onWhy`/`onEdit` props dropped, `compact`→`dense`
+- Custom `PillTabBarButton` in `RootNavigator` reading v7 `aria-selected`; active tab now shows filled phosphor-green rounded pill behind icon+label
+- Today: BrandBanner + DayToggle + sync icon button + day-choice-aware loading/error gates; coach brief now plain paragraph (no RetroBorder)
+- Week: BrandBanner + 7-day DayToggle (M–S) + selectedDay resets when cursor changes weeks
+- WorkoutDetail: BrandBanner + thin Back/Edit chip row + BottomActionBar; SafeAreaView `edges={['top']}`
+- Program: BrandBanner + `▸ The trilogy` and `▸ Weekly mileage` SectionHeaders above lanes / tracker
+- Settings: BrandBanner ▸ ATHLETE — email subhead
+- WeekTile dense restyle: filled status chip + neutral background
+- Deleted: `WhySheet.tsx` and all dead refs (intent already lives on WorkoutDetail)
+
+**Spec:** `docs/superpowers/specs/2026-05-07-feat-staycation-ux-overhaul-design.md`
+**Plan:** `docs/superpowers/plans/2026-05-08-session-2.8-staycation-overhaul.md`
+**Commit range:** `6f5876f..7b47400` (21 commits on `session-2/backend-move-endpoints`)
+
+**Notable lessons:**
+- React-navigation v7 selected-tab signal is `aria-selected`, not `accessibilityState.selected` (the v6 prop). The custom `tabBarButton` had to read the new prop or the active pill never lit up.
+- A SafeAreaView wrapping a screen that ends in a `BottomActionBar` should use `edges={['top']}`. Default `edges` (top+bottom) double-pads the home indicator since the action bar already adds `insets.bottom`.
+- 7-day toggle scroll-anchor is best-effort: `DraggableWeekList` doesn't expose per-day Y offsets, so the toggle updates visual state only. List is at top when on the current week, which is the realistic case. Follow-up tracked in plan §Risk Register.
+- `firstSentence` extractor for card subs needs markdown stripping + `?` terminator support + bare-punctuation guards or it leaves `**` markers and orphan punctuation. Caught by manual smoke on the post-rewrite WorkoutCard.
 
 ### Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish (2026-05-07)
 
