@@ -15,6 +15,10 @@ from app.routes.workouts import router as workouts_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+    logging.getLogger("uvicorn.error").info(
+        "BOOT: lifespan startup begin (web_origin=%s)", settings.web_origin
+    )
     yield
 
 
