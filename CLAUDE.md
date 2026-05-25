@@ -19,6 +19,18 @@
 - Alembic autogenerate against a drifted dev DB will try to recreate every table. If `alembic_version` is at head but tables are missing, run `alembic stamp base && alembic upgrade head` before autogenerating.
 - `docker compose down` wipes the Postgres named volume on Windows/WSL — re-run `alembic upgrade head` + `python -m app.seed.load_plan` after every restart.
 - Tests run in container: `docker compose exec -T api pytest` (not host pytest — deps live in the container).
+- Seed is idempotent by `(cycle_id, week_number, day)` upsert but does NOT delete weeks no longer in PLAN.md. When a phase shrinks (e.g., 28 → 22 weeks), old trailing-week rows persist as ghosts. Always `docker compose down -v` then fresh `alembic upgrade head` + `python -m app.seed.load_plan` after structural plan changes.
+
+**Plan / seed format:**
+- `app/seed/plan_parser.py` is intentionally format-agnostic for the weekly grid — any new weekly template (different day-of-week assignments, different number of workouts) works without parser changes as long as the `WEEK N` header + pipe-row `Day | type | dist | dur | description | intent` format is preserved. Push philosophy changes into PLAN.md and the `CYCLES[]` dict, not into the parser.
+- `app/config.py` `seed_password` field was declared but never wired through to `app/seed/load_plan.py:24` where `DEFAULT_PASSWORD = "changeme123"` was hardcoded. Caught during deploy prep — wire via `DEFAULT_PASSWORD = os.environ.get("SEED_PASSWORD", "changeme123")` before deploying or the login password is the hardcoded default.
+
+**Deployment (Railway + Vercel + iOS PWA):**
+- Railway's Postgres plugin injects `DATABASE_URL` in `postgresql://...` form, but SQLAlchemy async needs `postgresql+asyncpg://...`. Lightweight `Settings.__init__` rewrite of the scheme works for both local Docker and Railway with no orchestration around the env var.
+- Garmin tokens persist to `./data/garmin_tokens/<athlete_id>/tokens.json`. On Railway, mount a 1 GB volume at `/app/data` or tokens vanish on every redeploy and Garmin sync silently rebreaks.
+- iOS personal PWA distribution avoids the Apple Developer Program ($99/yr) and 7-day re-sign treadmill. Expo web build to Vercel + Safari "Add to Home Screen" gets fullscreen + custom splash + your icon. Smoke-test bottom-sheets (`@gorhom/bottom-sheet`), drag gestures (`react-native-gesture-handler`), and fonts (`expo-font` → CSS `@font-face` on web).
+- Anything prefixed `EXPO_PUBLIC_` is INLINED into the JS bundle and visible to any client — never put secrets there. API base URL is fine; tokens are not.
+- Full personal-deployment runbook lives at `docs/superpowers/specs/2026-05-24-personal-deployment-runbook.md`.
 
 **Mobile (Expo SDK 54 + RN 0.81 + TS strict + NativeWind v4):**
 - React 19 + TS 5.9: do NOT annotate `: JSX.Element` on component returns; let TypeScript infer.

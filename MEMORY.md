@@ -1,20 +1,23 @@
 # Project Memory
 
-## Current Status (2026-05-08, Session 2.8)
+## Current Status (2026-05-25, Session 2.9)
 
-**Branch:** `session-2/backend-move-endpoints` (~131 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7 / 2.8)
+**Branch:** `session-2/backend-move-endpoints` (~135 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7 / 2.8 / 2.9)
 
 **State:**
-- Backend: untouched this sprint. 104/104 tests pass, ruff clean. Endpoints: auth, plan/today/week/current/full/stats/start-date, workouts CRUD + move/apply-move/reschedule-original/skip/log-completed, workouts/completed/recent, garmin reauth/status/sync, metrics/recent.
-- Mobile: Staycation IA + visual overhaul shipped. BrandBanner on every content screen. Today uses `TODAY | TOMORROW` DayToggle; Week uses 7-seg `MON…SUN`. WorkoutCard rewritten (no inline Why/Edit; chevron affordance). Tab bar active-pill (filled phosphor green). WorkoutDetail uses BrandBanner + Back/Edit chip row + BottomActionBar. WhySheet retired. Typecheck clean.
-- DB: seeded plan (Marathon Trilogy 2026–2027), 3 cycles, 364 planned workouts. Login `runner@marathon.dev` / `changeme123`. `plan_history` table records reseed events.
-- Dev: Docker Desktop on Windows/WSL2; volume gets wiped on `docker compose down` so re-migrate + re-seed after each cycle.
+- Backend: 104/104 tests pass, ruff clean. Endpoints unchanged from 2.8. **PLAN.md rewritten to v3.2** — new Phase 1 (22 weeks, Mon=strength_a / Tue-Wed-Thu trail / Fri=strength_b / Sat=long / Sun=recovery), kickoff Mon 2026-05-25. Phase 2/3 preserved as PRELIMINARY. `app/seed/plan_parser.py` `CYCLES[0]` re-anchored to 2026-05-25, 22 weeks.
+- Mobile: unchanged from 2.8 (no code edits this sprint).
+- DB: re-seeded against v3.2 plan, **322 planned workouts** (was 364 under old v2.0), peak_week_target=20 (was 23). Login `runner@marathon.dev` / `changeme123` (until SEED_PASSWORD patch lands in deploy prep).
+- Deploy: **personal deployment runbook authored** at `docs/superpowers/specs/2026-05-24-personal-deployment-runbook.md` — Railway (API + Postgres + 1 GB Garmin-token volume), Vercel (Expo web build → iPhone Safari Add-to-Home-Screen PWA). Runbook ready to execute end-to-end (~2-3h solo).
+- Dev: Docker Desktop on Windows/WSL2; volume wipes on `docker compose down` apply doubly when changing plan structure — idempotent seed leaves ghost weeks from old structure, so `docker compose down -v` (destructive) is the canonical re-seed.
 
 **Open:**
-- Sessions 2.5–2.8 work not yet merged to `master`. User to smoke-test, then merge.
-- Strava integration is the leading backlog item (OAuth + webhook path) — replaces fragile `garminconnect` scraping.
-- Session 3 design / planning (Daily Coach, Run Analyst, free-form chat) is the next session's brainstorm.
-- Tracked follow-ups: 7-day toggle narrow-phone fallback (single-letter codes); `DraggableWeekList` per-day `onDayLayout(date, y)` so the 7-seg toggle can scroll-anchor.
+- **Personal deployment is the immediate next step** — runbook §0 through §6, then iPhone Add-to-Home-Screen and smoke-test checklist.
+- Sessions 2.5–2.9 work not yet merged to `master`. User to smoke-test (and deploy), then merge.
+- Cycles 2 (Disney) + 3 (Delaware) need re-anchoring after MCM 2026-10-25 — currently flagged PRELIMINARY in the seed.
+- Strava integration is the leading backlog item (OAuth + webhook path) — replaces fragile `garminconnect` scraping; especially relevant once Railway-IP Garmin sync is real-world tested.
+- Session 3 design / planning (Daily Coach, Run Analyst, free-form chat) is a later session's brainstorm.
+- Tracked mobile follow-ups: 7-day toggle narrow-phone fallback (single-letter codes); `DraggableWeekList` per-day `onDayLayout(date, y)` so the 7-seg toggle can scroll-anchor; PWA-specific UI affordance for slider/flex days (Session 2.9 explicitly deferred this — drag-to-move handles it functionally for now).
 
 ## Cross-Session Lessons
 
@@ -69,6 +72,15 @@
 - **Subagent dispatches** work well per-task; for ~30 small mechanical tasks (mobile retro restyles), batching 4–5 into one dispatch saves context without losing rigor.
 - **Plan's "append to file" pattern can violate ruff E402** — hoist imports up after the implementer follows the spec verbatim.
 - **`/update-notion` is Claude-side**, can't be triggered from a hook. Run it manually at session close-out per the global CLAUDE.md protocol.
+
+### Plan / Seed / Deploy (Session 2.9)
+- **Pipe-table parser is structure-agnostic.** `_parse_code_block` regex only requires `WEEK N` headers + `Day | type | dist | dur | desc | intent` rows. Switching from a 6-run/week template to a 4-5 run/week template needed zero parser changes — the entire v3.2 integration was PLAN.md content + a one-line `CYCLES[0]` start_date/weeks update. Keep parser dumb; push philosophy into the data file.
+- **Seed upsert is idempotent BUT leaks ghost rows.** Upsert key is `(cycle_id, week_number, day)` — when Phase 1 shrunk from 28 → 22 weeks, old W23-28 rows survived the re-run. `docker compose down -v` (wipes pgdata) is the canonical local re-seed for structural plan changes. On Railway, a fresh deploy starts empty so there's no ghost problem; for a future in-place re-seed write a one-off `app/seed/reset_planned.py` that deletes only `planned_workouts WHERE status='planned'` for a given athlete (preserve `completed_workouts`, `reconciliations`, `plan_history`).
+- **`SEED_PASSWORD` env var was declared in `app/config.py` but never read.** `app/seed/load_plan.py:24` had `DEFAULT_PASSWORD = "changeme123"` hardcoded. Caught while authoring the deploy runbook — fix is `DEFAULT_PASSWORD = os.environ.get("SEED_PASSWORD", "changeme123")` so Railway env can drive it. Watch for similar "declared but unused" config drift in other settings fields.
+- **Railway Postgres URL scheme adapter.** Plugin injects `DATABASE_URL=postgresql://...` but SQLAlchemy async needs `postgresql+asyncpg://...`. Patch in `Settings.__init__`: if it starts with `postgresql://`, rewrite the scheme. Same env var works locally (Docker) and on Railway with no orchestration layer.
+- **iOS personal-install economics.** Apple Developer Program ($99/yr) gives clean TestFlight + 1-year ad-hoc installs. Free Apple ID needs 7-day re-signs. PWA via Expo web → Vercel → Safari "Add to Home Screen" avoids both: fullscreen + custom splash + your icon, no signing. Tradeoff: bottom-sheets / drag-to-move / `expo-secure-store` need web-fallback consideration (most already handled in this codebase).
+- **Garmin tokens are on-disk state.** `./data/garmin_tokens/<athlete_id>/tokens.json` — on Railway, mount a 1 GB volume at `/app/data` or every redeploy silently breaks Garmin sync (tokens vanish, scraper tries fresh login, hits Garmin auth wall).
+- **`EXPO_PUBLIC_*` env vars are inlined into the JS bundle.** Visible to any client. Fine for API base URL; never for secrets. Vercel UX shows them in the env panel like any other var so it's easy to forget the distinction.
 
 ## Reference
 
