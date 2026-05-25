@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
 from app.routes.chat import router as chat_router
@@ -19,11 +20,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Marathon Coach", lifespan=lifespan)
 
-# Permissive CORS for local dev (Expo web on :8081 hitting API on :8000).
-# Tighten before any non-local deployment.
+# CORS: `web_origin` defaults to "*" for local dev; Railway env locks it to the Vercel URL.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"] if settings.web_origin == "*" else [settings.web_origin],
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=False,

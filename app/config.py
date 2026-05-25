@@ -11,5 +11,18 @@ class Settings(BaseSettings):
     tz: str = "America/New_York"
     jwt_expiry_days: int = 30
 
+    # Production additions
+    web_origin: str = "*"  # locked down via Railway env in prod
+    garmin_username: str = ""
+    garmin_password: str = ""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Railway's Postgres plugin gives `postgresql://...`; SQLAlchemy async needs `postgresql+asyncpg://...`
+        if self.database_url.startswith("postgresql://"):
+            self.database_url = self.database_url.replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            )
+
 
 settings = Settings()

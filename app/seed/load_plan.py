@@ -7,6 +7,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from decimal import Decimal
 
@@ -21,7 +22,7 @@ from app.models.workout import PlannedWorkout, WorkoutType
 from app.seed.plan_parser import parse_plan
 
 PLAN_NAME = "Marathon Trilogy 2026-2027"
-DEFAULT_PASSWORD = "changeme123"
+DEFAULT_PASSWORD = os.environ.get("SEED_PASSWORD", "changeme123")
 
 
 async def seed_plan(
