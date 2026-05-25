@@ -14,8 +14,8 @@ CYCLES = [
         "sequence": 1,
         "race_name": "Marine Corps Marathon",
         "race_date": date(2026, 10, 25),
-        "start_date": date(2026, 4, 13),
-        "weeks": 28,
+        "start_date": date(2026, 5, 25),
+        "weeks": 22,
     },
     {
         "name": "Phase 2 — Disney Build",

@@ -17,14 +17,14 @@ async def test_compute_reseed_impact_3_weeks_late(seeded_db):
 
     athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
 
-    # Original Cycle 1 start is 2026-04-13. Reseed to 2026-05-06.
-    new_start = date(2026, 5, 6)
+    # Default Cycle 1 start is 2026-05-25. Reseed to 2026-06-15 (3 weeks late).
+    new_start = date(2026, 6, 15)
     impact = await compute_reseed_impact(seeded_db, athlete.id, new_start)
 
     # Three weeks of cycle 1 planned rows would drop (~3*7 = 21 rows).
     assert impact.planned_dropped >= 15
-    # After reseed Cycle 1 spans 25 weeks (race 10/25, ceil((172 days)/7) = 25).
-    assert impact.new_cycle1_weeks == 25
+    # After reseed Cycle 1 spans 19 weeks (race 10/25, ceil((132 days)/7) = 19).
+    assert impact.new_cycle1_weeks == 19
     assert impact.new_cycle1_start == new_start
     assert impact.new_cycle1_end == date(2026, 10, 25)
 
@@ -40,7 +40,7 @@ async def test_compute_reseed_impact_does_not_mutate(seeded_db):
     rows_before = (await seeded_db.execute(select(PlannedWorkout))).scalars().all()
     n_before = len(rows_before)
 
-    await compute_reseed_impact(seeded_db, athlete.id, date(2026, 5, 6))
+    await compute_reseed_impact(seeded_db, athlete.id, date(2026, 6, 15))
 
     rows_after = (await seeded_db.execute(select(PlannedWorkout))).scalars().all()
     assert len(rows_after) == n_before
@@ -58,8 +58,8 @@ async def test_compute_reseed_impact_counts_completed_kept_and_dropped(seeded_db
     # Insert completed workouts before/after new_start
     pre = CompletedWorkout(
         athlete_id=athlete.id,
-        activity_date=date(2026, 4, 20),
-        started_at=datetime(2026, 4, 20, 9, 0),
+        activity_date=date(2026, 6, 1),
+        started_at=datetime(2026, 6, 1, 9, 0),
         activity_type="running",
         family=WorkoutFamily.running,
         duration_s=1800,
@@ -68,8 +68,8 @@ async def test_compute_reseed_impact_counts_completed_kept_and_dropped(seeded_db
     )
     post = CompletedWorkout(
         athlete_id=athlete.id,
-        activity_date=date(2026, 5, 10),
-        started_at=datetime(2026, 5, 10, 9, 0),
+        activity_date=date(2026, 6, 22),
+        started_at=datetime(2026, 6, 22, 9, 0),
         activity_type="running",
         family=WorkoutFamily.running,
         duration_s=2400,
@@ -80,7 +80,7 @@ async def test_compute_reseed_impact_counts_completed_kept_and_dropped(seeded_db
     seeded_db.add(post)
     await seeded_db.commit()
 
-    impact = await compute_reseed_impact(seeded_db, athlete.id, date(2026, 5, 6))
+    impact = await compute_reseed_impact(seeded_db, athlete.id, date(2026, 6, 15))
     assert impact.completed_kept >= 1  # post
     assert impact.completed_dropped >= 1  # pre
 
@@ -95,7 +95,7 @@ async def test_apply_reseed_drops_incomplete_and_emits_fresh(seeded_db):
 
     athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
 
-    new_start = date(2026, 5, 6)
+    new_start = date(2026, 6, 15)
     impact = await apply_reseed(seeded_db, athlete.id, new_start)
 
     # New Cycle 1 emitted with start = new_start
@@ -134,7 +134,7 @@ async def test_apply_reseed_drops_incomplete_and_emits_fresh(seeded_db):
     )
     assert all(w.scheduled_date >= new_start for w in cycle1_planned)
 
-    assert impact.new_cycle1_weeks == 25
+    assert impact.new_cycle1_weeks == 19
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_apply_reseed_keeps_done_planned_after_new_start(seeded_db):
                 .where(
                     Plan.athlete_id == athlete.id,
                     Cycle.sequence == 1,
-                    PlannedWorkout.scheduled_date == date(2026, 5, 9),
+                    PlannedWorkout.scheduled_date == date(2026, 6, 18),
                 )
                 .limit(1)
             )
@@ -170,7 +170,7 @@ async def test_apply_reseed_keeps_done_planned_after_new_start(seeded_db):
     target.status = WorkoutStatus.done
     await seeded_db.commit()
 
-    await apply_reseed(seeded_db, athlete.id, date(2026, 5, 6))
+    await apply_reseed(seeded_db, athlete.id, date(2026, 6, 15))
 
     survivor = (
         (await seeded_db.execute(select(PlannedWorkout).where(PlannedWorkout.id == target_id)))
@@ -201,7 +201,7 @@ async def test_apply_reseed_drops_done_before_new_start(seeded_db):
                 .where(
                     Plan.athlete_id == athlete.id,
                     Cycle.sequence == 1,
-                    PlannedWorkout.scheduled_date < date(2026, 5, 6),
+                    PlannedWorkout.scheduled_date < date(2026, 6, 15),
                 )
                 .limit(1)
             )
@@ -213,7 +213,7 @@ async def test_apply_reseed_drops_done_before_new_start(seeded_db):
     target.status = WorkoutStatus.done
     await seeded_db.commit()
 
-    await apply_reseed(seeded_db, athlete.id, date(2026, 5, 6))
+    await apply_reseed(seeded_db, athlete.id, date(2026, 6, 15))
 
     survivor = (
         (await seeded_db.execute(select(PlannedWorkout).where(PlannedWorkout.id == target_id)))
@@ -230,7 +230,7 @@ async def test_apply_reseed_writes_plan_history(seeded_db):
     from app.services.plan_reseed import apply_reseed
 
     athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
-    await apply_reseed(seeded_db, athlete.id, date(2026, 5, 6))
+    await apply_reseed(seeded_db, athlete.id, date(2026, 6, 15))
 
     history = (
         (
@@ -243,8 +243,8 @@ async def test_apply_reseed_writes_plan_history(seeded_db):
     )
     assert len(history) >= 1
     payload = history[0].payload_json
-    assert payload["old_start"] == "2026-04-13"
-    assert payload["new_start"] == "2026-05-06"
+    assert payload["old_start"] == "2026-05-25"
+    assert payload["new_start"] == "2026-06-15"
     assert "planned_dropped" in payload
     assert "new_cycle1_weeks" in payload
 
@@ -269,7 +269,7 @@ async def test_apply_reseed_discards_pending_proposals(seeded_db):
     await seeded_db.commit()
     msg_id = msg.id
 
-    impact = await apply_reseed(seeded_db, athlete.id, date(2026, 5, 6))
+    impact = await apply_reseed(seeded_db, athlete.id, date(2026, 6, 15))
     assert impact.proposals_discarded >= 1
 
     refreshed = (
@@ -286,9 +286,9 @@ async def test_apply_reseed_updates_plan_start_date(seeded_db):
     from app.services.plan_reseed import apply_reseed
 
     athlete = (await seeded_db.execute(select(Athlete).limit(1))).scalar_one()
-    await apply_reseed(seeded_db, athlete.id, date(2026, 5, 6))
+    await apply_reseed(seeded_db, athlete.id, date(2026, 6, 15))
 
     plan = (
         await seeded_db.execute(select(Plan).where(Plan.athlete_id == athlete.id))
     ).scalar_one()
-    assert plan.start_date == date(2026, 5, 6)
+    assert plan.start_date == date(2026, 6, 15)

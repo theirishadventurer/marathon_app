@@ -104,8 +104,8 @@ async def test_build_plan_full_returns_three_cycles_and_week_rollups(seeded_db):
     assert len(plan.cycles) == 3
     p1 = plan.cycles[0]
     assert p1.sequence == 1
-    assert p1.peak_week_target == 23
-    assert len(p1.weeks) == 28
+    assert p1.peak_week_target == 20
+    assert len(p1.weeks) == 22
     assert p1.weeks[0].planned_count >= 1
     assert all(w.status in ("done", "partial", "current", "upcoming", "skipped") for w in p1.weeks)
 
@@ -121,7 +121,7 @@ async def test_build_plan_full_marks_peak_and_race(seeded_db):
     peak_weeks = [w for w in p1.weeks if w.is_peak]
     race_weeks = [w for w in p1.weeks if w.has_race]
     assert len(peak_weeks) == 1
-    assert peak_weeks[0].week_number == 23
+    assert peak_weeks[0].week_number == 20
     assert len(race_weeks) >= 1
 
 
@@ -134,8 +134,8 @@ async def test_plan_full_endpoint_happy_path(client, seeded_auth_headers):
     assert len(body["cycles"]) == 3
     p1 = body["cycles"][0]
     assert p1["sequence"] == 1
-    assert p1["peak_week_target"] == 23
-    assert len(p1["weeks"]) == 28
+    assert p1["peak_week_target"] == 20
+    assert len(p1["weeks"]) == 22
     week_one = p1["weeks"][0]
     assert "planned_mi" in week_one
     assert "actual_mi" in week_one

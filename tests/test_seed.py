@@ -19,7 +19,7 @@ async def test_plan_parser_parses_plan_md():
     assert data["cycles"][2]["race_name"] == "Coastal Delaware Marathon"
     assert data["philosophy"] != ""
     total_workouts = sum(len(c["workouts"]) for c in data["cycles"])
-    assert total_workouts == 364, f"Expected 364 workouts, got {total_workouts}"
+    assert total_workouts == 322, f"Expected 322 workouts, got {total_workouts}"
 
 
 @pytest.mark.asyncio
@@ -34,7 +34,7 @@ async def test_seed_creates_correct_counts(db: AsyncSession):
     cycle_count = (await db.execute(select(func.count()).select_from(Cycle))).scalar()
     assert cycle_count == 3
     workout_count = (await db.execute(select(func.count()).select_from(PlannedWorkout))).scalar()
-    assert workout_count == 364
+    assert workout_count == 322
 
 
 @pytest.mark.asyncio
@@ -44,4 +44,4 @@ async def test_seed_is_idempotent(db: AsyncSession):
     await seed_plan(db, plan_path="PLAN.md", password="testpass")
     await seed_plan(db, plan_path="PLAN.md", password="testpass")
     workout_count = (await db.execute(select(func.count()).select_from(PlannedWorkout))).scalar()
-    assert workout_count == 364
+    assert workout_count == 322
