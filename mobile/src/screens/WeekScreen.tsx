@@ -47,6 +47,13 @@ export function WeekScreen() {
 
   const proposalSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<ScrollView>(null);
+  // Per-day y-offset (within ScrollView content) reported by DraggableWeekList
+  // so we can scroll-anchor when the DayToggle is tapped.
+  const dayOffsets = useRef<Map<string, number>>(new Map());
+  // On web (iOS Safari), the parent ScrollView claims upward touches before
+  // gesture-handler can. Disabling scroll during a drag lets the Pan win
+  // in both directions.
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const todayIsoStr = useMemo(() => toIso(new Date()), []);
   const todayCode = isoToDayCode(todayIsoStr);
@@ -95,10 +102,22 @@ export function WeekScreen() {
 
   const onPickDay = (code: DayCode) => {
     setSelectedDay(code);
-    // Best-effort scroll-anchor: precise per-day Y offsets aren't exposed by
-    // DraggableWeekList yet. Toggle state still updates visually; precise
-    // anchoring will follow up when the list exposes onDayLayout(date, y).
+    // Scroll-anchor the list to the picked day's tile. Offsets are populated
+    // by DraggableWeekList's onDayLayout callback as each day View is measured.
+    if (week.data === undefined) return;
+    const idx = DAY_CODES.indexOf(code);
+    if (idx < 0) return;
+    const dayIso = toIso(addDays(fromIso(week.data.week_start), idx));
+    const y = dayOffsets.current.get(dayIso);
+    if (y !== undefined) {
+      // Small offset (-8) so the day header isn't kissing the top of the viewport.
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    }
   };
+
+  const recordDayOffset = useCallback((dayIso: string, y: number) => {
+    dayOffsets.current.set(dayIso, y);
+  }, []);
 
   const subhead = useMemo(() => {
     if (week.data === undefined) return 'LOADING…';
@@ -132,6 +151,7 @@ export function WeekScreen() {
 
       <ScrollView
         ref={scrollRef}
+        scrollEnabled={scrollEnabled}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
@@ -159,6 +179,8 @@ export function WeekScreen() {
             onWorkoutPress={openDetail}
             onMoveRequest={requestMove}
             disabled={drag.pending !== null}
+            onDayLayout={recordDayOffset}
+            onDragActive={(active) => { setScrollEnabled(active); }}
           />
         )}
       </ScrollView>

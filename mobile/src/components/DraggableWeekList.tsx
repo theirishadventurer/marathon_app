@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -25,6 +25,14 @@ interface Props {
   onWorkoutPress: (w: PlannedWorkoutOut) => void;
   onMoveRequest: (w: PlannedWorkoutOut, newDate: string) => void;
   disabled?: boolean;
+  /** Fires with each day's y-offset within this list's root container
+   * (≈ y within the parent ScrollView content) so the DayToggle can
+   * scroll-anchor on tap. */
+  onDayLayout?: (date: string, y: number) => void;
+  /** Fires true when a drag begins, false when it finishes. Parent must
+   * toggle the ScrollView's `scrollEnabled` accordingly so vertical drags
+   * aren't claimed by the browser's native scroll on web (touch). */
+  onDragActive?: (active: boolean) => void;
 }
 
 function impact(kind: 'light' | 'medium' | 'selection') {
@@ -44,6 +52,7 @@ interface DraggableProps {
   onPress: () => void;
   onMove: (newDate: string) => void;
   disabled: boolean;
+  onDragActive: (active: boolean) => void;
 }
 
 function DraggableWorkout({
@@ -53,11 +62,16 @@ function DraggableWorkout({
   onPress,
   onMove,
   disabled,
+  onDragActive,
 }: DraggableProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
   const elevation = useSharedValue(0);
+  // Suppress onPress for ~150ms after a drag ends — on web (iOS Safari) the
+  // touch-end event still fires Pressable.onPress even when the gesture
+  // activated, opening WorkoutDetail when the user meant to drop.
+  const isDraggingRef = useRef(false);
 
   const handleHover = (date: string | null) => {
     if (date !== null && date !== workout.scheduled_date) impact('selection');
@@ -70,6 +84,22 @@ function DraggableWorkout({
     }
   };
 
+  const markDragStart = () => {
+    isDraggingRef.current = true;
+    onDragActive(true);
+  };
+  const markDragEnd = () => {
+    onDragActive(false);
+    // Keep the press-suppression flag set briefly so the touch-end event
+    // doesn't fire onPress after we let go.
+    setTimeout(() => { isDraggingRef.current = false; }, 150);
+  };
+
+  const handlePress = () => {
+    if (isDraggingRef.current) return;
+    onPress();
+  };
+
   const pan = Gesture.Pan()
     .enabled(!disabled && workout.status !== 'done')
     .activateAfterLongPress(300)
@@ -78,6 +108,7 @@ function DraggableWorkout({
       scale.value = withSpring(1.05, { damping: 12, stiffness: 220 });
       elevation.value = 10;
       runOnJS(impact)('light');
+      runOnJS(markDragStart)();
     })
     .onUpdate((e) => {
       'worklet';
@@ -110,6 +141,13 @@ function DraggableWorkout({
       scale.value = withSpring(1);
       elevation.value = 0;
       runOnJS(handleDrop)(dropDate);
+      runOnJS(markDragEnd)();
+    })
+    .onFinalize(() => {
+      'worklet';
+      // Belt-and-suspenders: if onEnd didn't fire (gesture cancelled), ensure
+      // the parent re-enables scroll and we clear the press-suppression flag.
+      runOnJS(markDragEnd)();
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -129,7 +167,7 @@ function DraggableWorkout({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={animatedStyle}>
-        <WorkoutCard workout={workout} onPress={onPress} />
+        <WorkoutCard workout={workout} onPress={handlePress} />
       </Animated.View>
     </GestureDetector>
   );
@@ -164,10 +202,13 @@ export function DraggableWeekList({
   onWorkoutPress,
   onMoveRequest,
   disabled = false,
+  onDayLayout,
+  onDragActive,
 }: Props) {
   const dayFrames = useSharedValue<DayFrame[]>([]);
   const hoveredDate = useSharedValue<string | null>(null);
   const refs = useRef<Record<string, View | null>>({});
+  const noopDragActive = useCallback(() => undefined, []);
 
   const measureDay = (date: string) => {
     const node = refs.current[date];
@@ -184,7 +225,13 @@ export function DraggableWeekList({
         const date = fromIso(day.date);
         const isToday = day.date === toIso(new Date());
         return (
-          <View key={day.date} className="mb-4">
+          <View
+            key={day.date}
+            className="mb-4"
+            onLayout={(e) => {
+              if (onDayLayout !== undefined) onDayLayout(day.date, e.nativeEvent.layout.y);
+            }}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
               {isToday && (
                 <Text style={{ color: colors.accentRun, fontFamily: fonts.pixel, fontSize: 10, marginRight: 6 }}>▸</Text>
@@ -223,6 +270,7 @@ export function DraggableWeekList({
                     onPress={() => { onWorkoutPress(w); }}
                     onMove={(newDate) => { onMoveRequest(w, newDate); }}
                     disabled={disabled}
+                    onDragActive={onDragActive ?? noopDragActive}
                   />
                 ))
               )}
