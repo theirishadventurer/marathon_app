@@ -1,23 +1,22 @@
 # Project Memory
 
-## Current Status (2026-05-25, Session 2.9)
+## Current Status (2026-05-26, Session 2.10)
 
-**Branch:** `session-2/backend-move-endpoints` (~135 commits ahead of master across Sessions 2 / 2.5 / 2.6 / 2.7 / 2.8 / 2.9)
+**Branch:** `master` (all session work merged; Sessions 1 / 2 / 2.5 / 2.6 / 2.7 / 2.8 / 2.9 / 2.10 = ~140 commits on master).
 
 **State:**
-- Backend: 104/104 tests pass, ruff clean. Endpoints unchanged from 2.8. **PLAN.md rewritten to v3.2** — new Phase 1 (22 weeks, Mon=strength_a / Tue-Wed-Thu trail / Fri=strength_b / Sat=long / Sun=recovery), kickoff Mon 2026-05-25. Phase 2/3 preserved as PRELIMINARY. `app/seed/plan_parser.py` `CYCLES[0]` re-anchored to 2026-05-25, 22 weeks.
-- Mobile: unchanged from 2.8 (no code edits this sprint).
-- DB: re-seeded against v3.2 plan, **322 planned workouts** (was 364 under old v2.0), peak_week_target=20 (was 23). Login `runner@marathon.dev` / `changeme123` (until SEED_PASSWORD patch lands in deploy prep).
-- Deploy: **personal deployment runbook authored** at `docs/superpowers/specs/2026-05-24-personal-deployment-runbook.md` — Railway (API + Postgres + 1 GB Garmin-token volume), Vercel (Expo web build → iPhone Safari Add-to-Home-Screen PWA). Runbook ready to execute end-to-end (~2-3h solo).
-- Dev: Docker Desktop on Windows/WSL2; volume wipes on `docker compose down` apply doubly when changing plan structure — idempotent seed leaves ghost weeks from old structure, so `docker compose down -v` (destructive) is the canonical re-seed.
+- Backend: 106/106 tests pass, ruff clean. Live on Railway at `https://marathonapp-production-cc63.up.railway.app`. Boot chain: `alembic upgrade head` → idempotent `python -m app.seed.load_plan` → uvicorn on `$PORT`. Postgres plugin linked via Variable Reference; 1 GB volume mounted at `/app/data` for Garmin tokens.
+- Web/Mobile: live on Vercel at `https://marathon-app-livid.vercel.app`. Installed as PWA on iPhone Safari (Add to Home Screen) — fullscreen, dark navy splash, app icon.
+- DB: 322 planned workouts seeded against v3.2 plan. Login `runner@marathon.dev` / whatever `SEED_PASSWORD` was at first Railway seed.
+- 6/7 iPhone PWA smoke-test bugs fixed (Session 2.10): workout edit body refresh, DayToggle scroll-anchor, Tweak stats default open, Week shows actuals when done, bottom nav layout, drag-and-drop touch-web. #7 (Garmin sync) is environmentally blocked — Garmin's WAF 429s the Railway datacenter IP — defensive error handling shipped, real fix is Strava migration.
+- Dev: Docker Desktop on Windows/WSL2 still primary for local iteration. Tests run in container.
 
 **Open:**
-- **Personal deployment is the immediate next step** — runbook §0 through §6, then iPhone Add-to-Home-Screen and smoke-test checklist.
-- Sessions 2.5–2.9 work not yet merged to `master`. User to smoke-test (and deploy), then merge.
+- **Strava integration moved from "nice to have" to "needed"** — Garmin sync is environmentally blocked from Railway. Until Strava OAuth ingestion is built, "completed" runs are manual-only via MARK DONE flow.
+- `BOOT:` diagnostic logging in `app/main.py` + `railway.json` could be backed out (low-priority cleanup; served its purpose during the deploy saga).
 - Cycles 2 (Disney) + 3 (Delaware) need re-anchoring after MCM 2026-10-25 — currently flagged PRELIMINARY in the seed.
-- Strava integration is the leading backlog item (OAuth + webhook path) — replaces fragile `garminconnect` scraping; especially relevant once Railway-IP Garmin sync is real-world tested.
 - Session 3 design / planning (Daily Coach, Run Analyst, free-form chat) is a later session's brainstorm.
-- Tracked mobile follow-ups: 7-day toggle narrow-phone fallback (single-letter codes); `DraggableWeekList` per-day `onDayLayout(date, y)` so the 7-seg toggle can scroll-anchor; PWA-specific UI affordance for slider/flex days (Session 2.9 explicitly deferred this — drag-to-move handles it functionally for now).
+- Tracked mobile follow-ups: 7-day toggle narrow-phone fallback (single-letter codes); PWA-specific UI affordance for slider/flex days (Session 2.9 explicitly deferred; drag-to-move handles it functionally).
 
 ## Cross-Session Lessons
 
@@ -72,6 +71,29 @@
 - **Subagent dispatches** work well per-task; for ~30 small mechanical tasks (mobile retro restyles), batching 4–5 into one dispatch saves context without losing rigor.
 - **Plan's "append to file" pattern can violate ruff E402** — hoist imports up after the implementer follows the spec verbatim.
 - **`/update-notion` is Claude-side**, can't be triggered from a hook. Run it manually at session close-out per the global CLAUDE.md protocol.
+
+### Deploy Execution + Bug Batch + Retro (Session 2.10)
+
+- **Railway startCommand parser is partial-shell.** It supports `&&` for chaining but does NOT shell-expand `${VAR:-default}` POSIX syntax cleanly. Plain `$PORT` substitution is inconsistent too. Always wrap in explicit `sh -c '...'` when you need guaranteed shell semantics. (Burned ~30 min and 3 deploy cycles on this — exactly the anti-pattern systematic-debugging.md warns about: candidate fixes without evidence-gathering instrumentation between attempts.)
+- **Diagnostic logging BEFORE the next candidate fix.** When the platform is opaque (Railway in this case), add `echo "BOOT: PORT=$PORT"` + a FastAPI lifespan logger line — one deploy will tell you whether shell expansion works AND whether uvicorn imported the app. The cost of an extra `echo` line is far less than the cost of three sequential guesses.
+- **Railway default healthcheckTimeout 30s is too short.** Cold-start migrations + uvicorn boot on managed Postgres can exceed it. Bump to 300 in `railway.json`.
+- **Branch matters for deploy.** Railway tracks a specific branch. If all feature work is on a long-running branch and master is stale (only initial docs), Railway sees nothing and Railpack reports "could not determine how to build the app." Merge to master OR change Railway's tracked branch before deploying. Add as Step 0 in any deploy runbook.
+- **Idempotent seed in startCommand = self-healing deploys.** Chain `python -m app.seed.load_plan` after `alembic upgrade head`. The seed's `(athlete_email, plan_name)` upsert makes every boot safe. Avoids needing to find Railway's web shell for the one-off seed step.
+- **`EXPO_PUBLIC_*` URL values MUST include protocol.** axios treats `marathonapp-prod.up.railway.app` (no `https://`) as a relative path → request goes to `https://your-vercel-domain/marathonapp-prod.up.railway.app/auth/login` → 404. ALWAYS prefix with `https://`. Diagnostic shortcut: check the actual Request URL in DevTools Network tab.
+- **`EXPO_PUBLIC_*` requires Vercel rebuild after change.** Compile-time inlined into the JS bundle; Vercel does NOT auto-rebuild on env var change. Trigger Redeploy (uncheck "Use existing build cache") to bake the new value into the bundle.
+- **5xx without CORS headers shows up in browser as "blocked by CORS policy".** FastAPI's default exception handler returns 500s without CORS decoration. When diagnosing a "CORS error", get the HTTP status code + response body BEFORE blaming the middleware. Defensive route-level try/except converting to `HTTPException(4xx)` keeps responses CORS-compliant. (Backlog: add a global exception handler that decorates 5xx with CORS headers.)
+- **`garminconnect.Garmin.login()` silently returns on HTTP 429** (Garmin WAF rate-limiting datacenter IPs) instead of raising. Defend via post-login `hasattr(client, 'garth')` check; raise a custom `GarminLoginFailed` exception. Garmin sync from Railway is broken until Strava migration replaces the scraping path.
+- **`react-native-gesture-handler` on touch-web has two known caveats:** (1) parent ScrollView claims upward touches before Pan can activate → "can only drag down, not up." Fix: toggle `scrollEnabled` during drag via parent state. (2) Pressable's `onPress` fires after long-press gesture completes → "drop opens detail." Fix: track `isDraggingRef` with 150ms post-drag suppression. Add `onFinalize` cleanup for cancelled gestures.
+- **Workout edit doesn't auto-refresh description/intent unless explicitly sent.** PATCH `/workouts/{id}` originally only updated type/family/title/distance/duration. Added `description_md` + `intent_md` to `EditWorkoutRequest` schema + route. Frontend EditQuestSheet QUICK_PICKS now carries `defaultDescriptionMd` / `defaultIntentMd` per workout type and sends on Confirm.
+- **Planned vs actual on Week tab:** /plan/week now joins through Reconciliation → CompletedWorkout to populate an `actual` field on PlannedWorkoutOut. WorkoutCard prefers `actual.distance_mi` when status=done; renders `plan: X.Xmi` sub-label when actual and planned differ by ≥0.1 mi.
+
+#### Process retro lessons (worth re-reading before next debugging session)
+
+- **The systematic-debugging skill is rigid for a reason.** When I followed it (bug batch, post-mid-session pivot), all 6 fixes went cleanly. When I didn't (Railway port saga), 3 wasted deploys + ~30 min lost. The skill's "one more fix attempt = STOP and add diagnostic instrumentation" rule is the single highest-leverage discipline.
+- **Failing test before implementation** for non-trivial backend changes (#1 description_md/intent_md, #5b actual on /plan/week) made the fix verifiable AND scoped correctly. Both failed exactly the way I predicted on first run, then passed after the minimal fix. ~10 min extra upfront, saves rework.
+- **Push back on batching under user time pressure.** When the user requested "fix all 4 [then 6] bugs tonight, batched" *right after* I'd confessed to bad batching on Railway, my instinct was to accept. The skill's discipline pays off: I pushed back, scoped to one-at-a-time, all 6 shipped clean. Recurring failure mode: treating "user wants it done" as override for "should be done correctly."
+- **Recognize when the root cause is external.** Bug #3 (Garmin 429) wasn't a code defect — it was Garmin's WAF blocking Railway. The right action was defensive error surfacing + strategic note ("Strava migration is the real fix"), not trying to "make Garmin work harder."
+- **"Browser says CORS error" ≠ "CORS is the problem."** When the request *receives* a response (even an error), CORS is firing. The real bug is whatever made the upstream return a header-less error.
 
 ### Plan / Seed / Deploy (Session 2.9)
 - **Pipe-table parser is structure-agnostic.** `_parse_code_block` regex only requires `WEEK N` headers + `Day | type | dist | dur | desc | intent` rows. Switching from a 6-run/week template to a 4-5 run/week template needed zero parser changes — the entire v3.2 integration was PLAN.md content + a one-line `CYCLES[0]` start_date/weeks update. Keep parser dumb; push philosophy into the data file.

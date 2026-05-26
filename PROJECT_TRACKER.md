@@ -10,11 +10,91 @@
 | Session 2.6 — UX polish + Program tab + Weekly Mileage Tracker | ✅ Done | `session-2/backend-move-endpoints` | Smoother-NES polish, Program tab with 3-lane world map + cycle-scoped mileage chart |
 | Session 2.7 — Manual mark-complete + Recent runs + Coach brief + Start-date reseed + JetBrains Mono polish | ✅ Done | `session-2/backend-move-endpoints` | Four parallel features: log-completed flow, recent-runs strip + computed coach brief on Today, start-date reseed with dry_run preview + plan_history audit, typography sweep retiring PressStart2P from content sizes |
 | Session 2.8 — Staycation IA + visual overhaul | ✅ Done | `session-2/backend-move-endpoints` | BrandBanner + DayToggle + WorkoutCard rewrite + tab active-pill + WhySheet retired (presentation-only; no API change) |
-| Session 2.9 — Plan v3.2 + personal deployment runbook | ✅ Done (deploy pending exec) | `session-2/backend-move-endpoints` | New v3.2 plan integrated (22-week MCM build kicking off 2026-05-25, 4-5 runs/week, Mon/Fri strength-only). Phase 2/3 preserved as PRELIMINARY. Personal deployment runbook authored (Railway API + Postgres + 1GB volume / Vercel free web/PWA / iPhone Add-to-Home-Screen). Runbook ready to execute. |
-| Strava integration (alternative to Garmin scraping) | ⏳ Backlog | — | OAuth + webhook ingestion path. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. Goal: replace fragile `garminconnect` scraping with stable Strava official API. Garmin→Strava is a native one-tap setting users already have. |
+| Session 2.9 — Plan v3.2 + personal deployment runbook | ✅ Done | `master` (merged) | v3.2 plan integrated; deployment runbook authored. |
+| Session 2.10 — Personal deploy executed + iPhone PWA bug batch | ✅ Done (Garmin IP-blocked) | `master` | App live: Railway API + Postgres + Vercel web/PWA + iPhone Add-to-Home-Screen. 6/7 bugs fixed (workout edit body refresh, DayToggle scroll-anchor, Tweak stats default open, Week shows actuals when done, bottom nav layout, drag-and-drop touch-web). Garmin sync defensively wrapped but blocked at Garmin's WAF (datacenter IP rate-limit, HTTP 429). Strava migration is the real fix. |
+| Strava integration (alternative to Garmin scraping) | ⏳ Backlog (now urgent — blocks Garmin in prod) | — | OAuth + webhook ingestion. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. **Promoted from "nice to have" to "needed" after Session 2.10's confirmed Garmin 429 from Railway IP.** Garmin→Strava is a native one-tap setting users already have. |
 | Session 3 — Daily Coach, Run Analyst, free-form chat | ⏳ Backlog | — | See `SESSION_3.md` |
 
 ## Sprint History
+
+### Session 2.10 — Personal Deploy Executed + iPhone PWA Bug Batch (2026-05-25 → 2026-05-26)
+
+**Goal:** Execute the Session 2.9 deployment runbook end-to-end, get the app reachable on the open internet via Railway (API + Postgres) and Vercel (Expo web → iPhone PWA), then fix the bugs surfaced by the first real smoke-test session on iPhone Safari.
+
+**Status:** ✅ App is live and functional. 6/7 reported bugs fixed; #7 (Garmin sync) is blocked by external constraint (Garmin's WAF rate-limits datacenter IPs with HTTP 429) — defensive error handling shipped, real fix is the Strava migration on the backlog.
+
+**Deployment deliverables (Step 1 → Step 5 of runbook):**
+- `Dockerfile.prod` + `railway.json` shipped — Railway builds from Dockerfile, runs `alembic upgrade head` + `python -m app.seed.load_plan` + uvicorn on `$PORT` (idempotent seed makes every boot self-healing on fresh Postgres).
+- `app/config.py` rewrites `postgresql://` → `postgresql+asyncpg://` at startup so Railway's auto-injected `DATABASE_URL` works with SQLAlchemy async.
+- `app/main.py` CORS locked down to Vercel origin via `WEB_ORIGIN` env var.
+- `app/seed/load_plan.py` reads `SEED_PASSWORD` from env (was hardcoded `"changeme123"` — caught during runbook authoring, fixed pre-deploy).
+- Railway: API service from `master`, Postgres plugin linked via Variable Reference, 1 GB volume mounted at `/app/data` for Garmin tokens, all env vars set.
+- `mobile/app.json` PWA web block: name, shortName, themeColor `#0e1320`, display `standalone`, lang `en-US`.
+- `mobile/vercel.json` + `mobile/assets/apple-touch-icon.png`.
+- Vercel project rootDir `mobile`, `EXPO_PUBLIC_API_URL` pointed at Railway domain.
+- iPhone PWA: Safari → Share → Add to Home Screen → fullscreen navy splash + icon. Working.
+
+**Bug batch deliverables (followed systematic-debugging discipline this round):**
+- **#1 workout-edit body refresh** — `EditWorkoutRequest` schema + route gain `description_md` / `intent_md` fields. Frontend `EditQuestSheet` QUICK_PICKS map carries `defaultDescriptionMd` / `defaultIntentMd` per type and sends on Confirm. Failing test landed before fix.
+- **#2 DayToggle scroll-anchor** — `DraggableWeekList` exposes `onDayLayout(date, y)` callback. `WeekScreen` caches per-day offsets and scrolls on day pick. Completes the Session 2.8 follow-up.
+- **#5a Tweak stats default open** — `useState(false)` → `useState(true)` in `EditQuestSheet`. Surfaces the distance/duration fields users were missing.
+- **#5b Week tab shows actuals when done** — New `PlannedActualOut` schema (`distance_mi`, `duration_s`, `started_at`) + optional `actual` field on `PlannedWorkoutOut`. `/plan/week` joins through `Reconciliation` → `CompletedWorkout`. `WorkoutCard` prefers `actual.distance_mi` when status=done; renders `plan: X.Xmi` sub-label when actual and planned differ by ≥0.1 mi. Failing test landed before fix.
+- **#6 bottom nav squished on iPhone 15 Pro Max** — `PillTabBarButton` flexDirection `row` → `column`, paddingHorizontal `14` → `8`. Standard tab layout, fits all reasonable iPhone widths.
+- **#7 drag-and-drop on touch web** — Two symptoms, same root cause: `react-native-gesture-handler` gesture priority doesn't translate to web touch events. Fix: WeekScreen controls `scrollEnabled` state, DraggableWeekList exposes `onDragActive`; Pan disables scroll during drag (fixes "can only move down"). DraggableWorkout tracks `isDraggingRef` with 150ms post-drag suppression window (fixes "drop opens workout detail"). `onFinalize` belt-and-suspenders for cancelled gestures.
+- **#3 Garmin defensive error handling** — `GarminLoginFailed` exception in `garmin_sync.py` covers wrong creds, 429, network errors, and the silent failure mode where `client.login()` returns without setting `.garth` (observed on 429). Route converts to `HTTPException(502)` with the message, so users see a clean error instead of opaque 500 (which the browser then misreports as CORS-blocked).
+- **#4 free-form coach** — explicitly deferred to Session 3.
+
+**Specs:** `docs/superpowers/specs/2026-05-24-personal-deployment-runbook.md` (the executable runbook, refined during execution).
+
+**Commit range:** `a918e2c..e61eb05` on `master` (Session 2.9 design + Session 2.10 execution + bug batch).
+
+---
+
+#### Retro — what went well, what went wrong
+
+**🟢 Wins (worth repeating):**
+
+1. **Brainstorming discipline on v3.2** — design → spec → user approval → implementation → tests went smoothly with no rework.
+2. **Bug-batch discipline (post-mid-session)** — once we invoked `systematic-debugging`, all 6 fixes followed Phase 1 → 4. Failing test before implementation for #1 and #5b made the work verifiable. One commit per logical batch with rollback points.
+3. **Defensive Garmin fix** — recognized when the root cause was external (Garmin WAF) and the right action was clean error surfacing + a strategic note, not "make it work harder."
+4. **Multi-component evidence gathering** — adding `echo "BOOT: PORT=$PORT"` + lifespan logger to diagnose the deploy crashes was textbook (even if it came late — see Loss #1).
+
+**🔴 What went wrong (and what we should have done):**
+
+1. **Three sequential blind fixes on the Railway port issue (~30 min wasted, 3 deploy cycles):** `--port 8000` → `${PORT:-8000}` → `$PORT` → `sh -c '$PORT'`. Each fix was a guess without evidence. Should have added the `BOOT: PORT=$PORT` echo on attempt #2 — one deploy would have told us whether shell expansion was working at all. Exactly the anti-pattern `systematic-debugging.md` calls out ("one more fix attempt" after 2+ failures).
+   - **Lesson:** When the platform is opaque (Railway's exec form vs sh form behavior), add diagnostic instrumentation BEFORE the next candidate fix. The skill's "Phase 1.4 — Gather Evidence in Multi-Component Systems" section is exactly for this case.
+
+2. **CORS error masquerading as Garmin error** — initial diagnosis pointed at `WEB_ORIGIN` trailing slash; that was wrong. The real cause was a 500 from `/garmin/reauth` whose response stripped CORS headers, making the browser report it as "blocked by CORS." Took two diagnostic round-trips to get to the application-log traceback.
+   - **Lesson:** "Browser console says CORS" is not the same as "CORS is misconfigured." When the request is *receiving a response* (even an error), CORS is firing — the real issue is whatever made the upstream return a header-less error. Always ask for HTTP status code + response body before assuming CORS root cause.
+   - **Lesson:** Add a global FastAPI exception handler that decorates 5xx responses with CORS headers, so future 500s show up correctly in the browser as "500 Internal Server Error" instead of as CORS ghosts. (Backlog: defensive infra improvement.)
+
+3. **Branch mismatch on first Railway deploy** — Railway deployed `master` (which had only initial docs, no code). All Session 1–2.9 work was on `session-2/backend-move-endpoints` and never merged. Required merging to master to fix.
+   - **Lesson:** Add explicit "merge feature branch to master" as a Step 0 in any deploy runbook. The deploy assumes master = production state; long-running feature branches break that assumption silently.
+
+4. **EXPO_PUBLIC_API_URL without `https://`** — axios treated the bare hostname as a relative path, producing the absurd concatenated URL `vercel-domain/railway-domain/auth/login` → 404. Diagnostic was fast once we saw the Network tab Request URL.
+   - **Lesson:** Vercel env-var UX needs stronger guidance for `EXPO_PUBLIC_*` values — always include protocol, never trailing slash. Add to runbook §4 explicitly.
+
+5. **Tried to batch 6 bug fixes initially** — user requested "fix all 4 [then 6] tonight, batched." Almost replicated the Railway anti-pattern. Pushed back, scoped to one-at-a-time. Good outcome but the instinct to batch under pressure is a recurring failure mode.
+   - **Lesson:** When the user requests batching after I've just confessed to bad batching, push back harder up-front, not by default-accepting.
+
+6. **Hardcoded `SEED_PASSWORD` "changeme123" was lurking** — declared in `app/config.py` for unknown reasons but never read from env until I noticed during runbook authoring. Caught it, but represents "declared-but-unused" config drift from earlier sessions.
+   - **Lesson:** Periodically grep config fields against actual usage; remove declared-but-unread fields OR wire them through.
+
+**🟡 External constraints (acknowledged, not fixable in this codebase):**
+
+- **Garmin's WAF rate-limits datacenter IPs (429)** — `garminconnect` is unofficial scraping; Garmin actively blocks it from cloud providers. Strava integration via official OAuth is the only durable path.
+- **react-native-gesture-handler on web is imperfect** — gesture priority vs browser native touch handling causes the scrollable-list drag issues we patched in #7. Patches work but a future Expo SDK or gesture-handler version may need re-tuning.
+- **Railway startCommand exec form** — does NOT shell-expand `${VAR:-default}` POSIX syntax cleanly. Wrap in explicit `sh -c '...'` if you need shell semantics. This is undocumented behavior we discovered the hard way.
+
+#### Notable lessons (added to CLAUDE.md + MEMORY.md)
+
+- Railway `DATABASE_URL` scheme adapter pattern (`postgresql://` → `postgresql+asyncpg://`) at Settings init time
+- Railway startCommand `sh -c` wrapping for guaranteed shell expansion (`$PORT`, `&&`, etc.)
+- Idempotent seed in startCommand makes deploys self-healing (no shell needed for one-off seed)
+- `EXPO_PUBLIC_*` vars are compile-time inlined into the JS bundle — never put secrets there; ALWAYS include `https://` for URL values (axios treats bare hostnames as relative)
+- 500-without-CORS-headers shows up in browser as a "CORS blocked" error — get the HTTP status code + traceback before blaming CORS config
+- Garmin login failing silently (returning without setting `.garth` on 429) — defend via post-login `hasattr` check
+- "Can only move down, not up" on touch-web drag = parent ScrollView claiming upward touches — fix by toggling `scrollEnabled` during gesture
 
 ### Session 2.9 — Plan v3.2 + Personal Deployment Runbook (2026-05-24 → 2026-05-25)
 
