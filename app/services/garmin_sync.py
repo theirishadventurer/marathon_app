@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 BASE_TOKEN_DIR = Path("./data/garmin_tokens")
 
 
+class GarminLoginFailed(Exception):
+    """Raised when Garmin login fails. Covers wrong-creds, rate-limit (429),
+    network errors, and the silent-fail mode where garminconnect returns
+    without setting client.garth (typical for HTTP 429 from datacenter IPs)."""
+
+
 @dataclass
 class SyncReport:
     synced_activities: int = 0
@@ -47,15 +53,40 @@ class GarminSyncService:
     # ------------------------------------------------------------------
 
     async def reauth(self, email: str, password: str) -> None:
-        """Authenticate with Garmin and persist tokens."""
+        """Authenticate with Garmin and persist tokens.
+
+        Raises:
+            GarminLoginFailed: wrong creds, 429 rate limit (common from
+                datacenter IPs like Railway), network error, or the silent
+                failure mode where ``client.login()`` returns without
+                setting ``client.garth`` (observed on 429 in garminconnect
+                0.2.x). The route handler converts this to a 502 with a
+                user-readable message.
+        """
         self.token_dir.mkdir(parents=True, exist_ok=True)
         token_path = self.token_dir / "tokens.json"
 
         client = Garmin(email=email, password=password)
-        await asyncio.to_thread(client.login)
+        try:
+            await asyncio.to_thread(client.login)
+        except GarminConnectAuthenticationError as e:
+            raise GarminLoginFailed(f"Garmin rejected credentials: {e}") from e
+        except Exception as e:
+            raise GarminLoginFailed(f"Garmin login error: {e}") from e
+
+        # garminconnect silently returns without raising on HTTP 429
+        # (datacenter IP rate limit). Detect by checking the .garth session.
+        garth = getattr(client, "garth", None)
+        if garth is None:
+            raise GarminLoginFailed(
+                "Garmin login appeared to succeed but no session was "
+                "established (likely HTTP 429 — Garmin rate-limited the "
+                "server IP). Datacenter IPs are frequently throttled. "
+                "Long-term fix: Strava integration on backlog."
+            )
 
         # Persist tokens
-        tokens = await asyncio.to_thread(client.garth.dumps)
+        tokens = await asyncio.to_thread(garth.dumps)
         token_path.write_text(tokens)
 
         self.client = client
