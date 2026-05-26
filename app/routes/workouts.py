@@ -222,6 +222,10 @@ async def edit_workout(
         planned.duration_min = updates["duration_min"]
     if "title" in updates:
         planned.title = updates["title"]
+    if "description_md" in updates:
+        planned.description_md = updates["description_md"]
+    if "intent_md" in updates:
+        planned.intent_md = updates["intent_md"]
 
     await db.commit()
     await db.refresh(planned)

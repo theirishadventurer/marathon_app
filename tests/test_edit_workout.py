@@ -71,6 +71,40 @@ async def test_patch_workout_changes_type_and_snapshots(client, athlete_token, s
 
 
 @pytest.mark.asyncio
+async def test_patch_workout_updates_description_and_intent(
+    client, athlete_token, seeded_db,
+):
+    """Editing a workout's type should also let the client supply a fresh
+    description_md and intent_md so the new prescription is reflected.
+
+    Before this fix: changing easy → tempo left the description ("3 easy trail
+    + prehab") and intent ("Aerobic + prehab") untouched, so the rendered
+    WorkoutCard contradicted the new type.
+    """
+    result = await seeded_db.execute(
+        select(PlannedWorkout).where(PlannedWorkout.type == "easy").limit(1)
+    )
+    workout = result.scalar_one()
+    wid = str(workout.id)
+
+    response = await client.patch(
+        f"/workouts/{wid}",
+        json={
+            "type": "tempo",
+            "title": "Tempo run",
+            "description_md": "Tempo effort: controlled, stronger than MP.",
+            "intent_md": "Threshold development",
+        },
+        headers={"Authorization": f"Bearer {athlete_token}"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "tempo"
+    assert body["description_md"] == "Tempo effort: controlled, stronger than MP."
+    assert body["intent_md"] == "Threshold development"
+
+
+@pytest.mark.asyncio
 async def test_patch_workout_404_for_nonexistent(client, athlete_token):
     response = await client.patch(
         "/workouts/00000000-0000-0000-0000-000000000000",

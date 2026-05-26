@@ -8,6 +8,17 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class PlannedActualOut(BaseModel):
+    """Subset of CompletedWorkout fields surfaced alongside a planned workout
+    when there's a matched Reconciliation. Used by Week tab to render actuals
+    (distance, duration) instead of the original planned numbers when a
+    workout is done."""
+
+    distance_mi: Decimal | None
+    duration_s: int
+    started_at: datetime
+
+
 class PlannedWorkoutOut(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -27,6 +38,7 @@ class PlannedWorkoutOut(BaseModel):
     description_md: str
     intent_md: str
     original_snapshot: dict | None = Field(default=None, validation_alias="original_snapshot_json")
+    actual: PlannedActualOut | None = None
 
 
 class CycleOut(BaseModel):

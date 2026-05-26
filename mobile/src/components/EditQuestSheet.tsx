@@ -14,17 +14,19 @@ interface QuickPick {
   defaultDistanceMi: number | null;
   defaultDurationMin: number | null;
   defaultTitle: string;
+  defaultDescriptionMd: string;
+  defaultIntentMd: string;
 }
 
 const QUICK_PICKS: QuickPick[] = [
-  { type: 'easy', label: 'EASY',     family: 'running',  defaultDistanceMi: 5,  defaultDurationMin: 50,  defaultTitle: 'Easy run' },
-  { type: 'tempo', label: 'TEMPO',   family: 'running',  defaultDistanceMi: 6,  defaultDurationMin: 55,  defaultTitle: 'Tempo run' },
-  { type: 'long', label: 'LONG',     family: 'running',  defaultDistanceMi: 12, defaultDurationMin: 120, defaultTitle: 'Long run' },
-  { type: 'intervals', label: 'INTERVAL', family: 'running', defaultDistanceMi: 6, defaultDurationMin: 50, defaultTitle: 'Intervals' },
-  { type: 'strength_a', label: 'STR-A', family: 'strength', defaultDistanceMi: null, defaultDurationMin: 45, defaultTitle: 'Strength A' },
-  { type: 'strength_b', label: 'STR-B', family: 'strength', defaultDistanceMi: null, defaultDurationMin: 45, defaultTitle: 'Strength B' },
-  { type: 'cross', label: 'CROSS',   family: 'other',    defaultDistanceMi: null, defaultDurationMin: 45, defaultTitle: 'Cross-train' },
-  { type: 'rest', label: 'REST',     family: 'other',    defaultDistanceMi: null, defaultDurationMin: 0,  defaultTitle: 'Rest' },
+  { type: 'easy',       label: 'EASY',     family: 'running',  defaultDistanceMi: 5,    defaultDurationMin: 50,  defaultTitle: 'Easy run',     defaultDescriptionMd: 'Easy aerobic effort, conversational pace.',                           defaultIntentMd: 'Aerobic base / recovery' },
+  { type: 'tempo',      label: 'TEMPO',    family: 'running',  defaultDistanceMi: 6,    defaultDurationMin: 55,  defaultTitle: 'Tempo run',    defaultDescriptionMd: 'Tempo effort: controlled, stronger than MP. Hold steady.',           defaultIntentMd: 'Threshold development' },
+  { type: 'long',       label: 'LONG',     family: 'running',  defaultDistanceMi: 12,   defaultDurationMin: 120, defaultTitle: 'Long run',     defaultDescriptionMd: 'Long run at conversational pace. Fuel per progression.',             defaultIntentMd: 'Aerobic endurance' },
+  { type: 'intervals',  label: 'INTERVAL', family: 'running',  defaultDistanceMi: 6,    defaultDurationMin: 50,  defaultTitle: 'Intervals',    defaultDescriptionMd: 'Interval session at threshold or above. Full recoveries between reps.', defaultIntentMd: 'VO2max / speed' },
+  { type: 'strength_a', label: 'STR-A',    family: 'strength', defaultDistanceMi: null, defaultDurationMin: 45,  defaultTitle: 'Strength A',   defaultDescriptionMd: 'Strength A — heavier lower body (squat, RDL, bench, pulls).',         defaultIntentMd: 'Heavy lower strength' },
+  { type: 'strength_b', label: 'STR-B',    family: 'strength', defaultDistanceMi: null, defaultDurationMin: 45,  defaultTitle: 'Strength B',   defaultDescriptionMd: 'Strength B — lighter upper + accessories (OH press, split squat, carry).', defaultIntentMd: 'Upper strength + balance' },
+  { type: 'cross',      label: 'CROSS',    family: 'other',    defaultDistanceMi: null, defaultDurationMin: 45,  defaultTitle: 'Cross-train',  defaultDescriptionMd: 'Cross-training: bike, row, or swim. Low-impact aerobic.',             defaultIntentMd: 'Cross-training' },
+  { type: 'rest',       label: 'REST',     family: 'other',    defaultDistanceMi: null, defaultDurationMin: 0,   defaultTitle: 'Rest',         defaultDescriptionMd: 'Rest day. Mobility or full off.',                                     defaultIntentMd: 'Recovery' },
 ];
 
 interface Props {
@@ -39,7 +41,9 @@ export const EditQuestSheet = forwardRef<BottomSheet, Props>(function EditQuestS
 ) {
   const snapPoints = useMemo(() => ['70%', '95%'], []);
   const [picked, setPicked] = useState<QuickPick | null>(null);
-  const [tweaking, setTweaking] = useState(false);
+  // Default open so distance/duration are visible immediately on quick-pick.
+  // Previously collapsed-by-default caused users to ship silent defaults.
+  const [tweaking, setTweaking] = useState(true);
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');
   const [title, setTitle] = useState('');
@@ -53,7 +57,14 @@ export const EditQuestSheet = forwardRef<BottomSheet, Props>(function EditQuestS
 
   const submit = () => {
     if (picked === null) return;
-    const body: EditWorkoutRequest = { type: picked.type, title };
+    // Include description_md + intent_md from the picked template so the
+    // backend stops carrying stale prescription/intent from the prior type.
+    const body: EditWorkoutRequest = {
+      type: picked.type,
+      title,
+      description_md: picked.defaultDescriptionMd,
+      intent_md: picked.defaultIntentMd,
+    };
     const d = parseFloat(distance);
     if (!Number.isNaN(d)) body.distance_mi = d;
     else body.distance_mi = null;

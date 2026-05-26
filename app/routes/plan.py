@@ -4,6 +4,7 @@ import datetime
 import time
 import uuid
 from dataclasses import asdict
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +22,7 @@ from app.schemas.plan import (
     DayWorkouts,
     PlanCurrentOut,
     PlanFullOut,
+    PlannedActualOut,
     PlannedWorkoutOut,
     PlanStatsOut,
     StartDateImpact,
@@ -246,13 +248,46 @@ async def plan_week(
         )
         workouts = list(result.scalars().all())
 
+    # For done workouts: pull matched CompletedWorkout via Reconciliation so
+    # the WorkoutCard can render actuals instead of planned values.
+    # Empty workouts → empty map; safe.
+    completed_by_planned_id: dict[uuid.UUID, CompletedWorkout] = {}
+    if workouts:
+        planned_ids = [w.id for w in workouts]
+        recon_rows = (
+            await db.execute(
+                select(Reconciliation, CompletedWorkout)
+                .join(CompletedWorkout, Reconciliation.completed_id == CompletedWorkout.id)
+                .where(
+                    Reconciliation.athlete_id == athlete.id,
+                    Reconciliation.planned_id.in_(planned_ids),
+                )
+            )
+        ).all()
+        for recon, completed in recon_rows:
+            if recon.planned_id is not None:
+                completed_by_planned_id[recon.planned_id] = completed
+
+    def _build_out(w: PlannedWorkout) -> PlannedWorkoutOut:
+        out = PlannedWorkoutOut.model_validate(w)
+        cw = completed_by_planned_id.get(w.id)
+        if cw is not None:
+            distance_mi: Decimal | None = None
+            if cw.distance_m is not None:
+                # meters → miles (1609.344 m/mi); quantize to 2dp for display stability
+                distance_mi = (cw.distance_m / Decimal("1609.344")).quantize(Decimal("0.01"))
+            out.actual = PlannedActualOut(
+                distance_mi=distance_mi,
+                duration_s=cw.duration_s,
+                started_at=cw.started_at,
+            )
+        return out
+
     # Build 7 days
     days = []
     for i in range(7):
         d = week_start + datetime.timedelta(days=i)
-        day_workouts = [
-            PlannedWorkoutOut.model_validate(w) for w in workouts if w.scheduled_date == d
-        ]
+        day_workouts = [_build_out(w) for w in workouts if w.scheduled_date == d]
         days.append(DayWorkouts(date=d, workouts=day_workouts))
 
     return WeekOut(week_start=week_start, days=days)

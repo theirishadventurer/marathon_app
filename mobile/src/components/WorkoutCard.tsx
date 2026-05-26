@@ -67,12 +67,46 @@ function metaLabel(workout: PlannedWorkoutOut, dense: boolean): string {
   return `${dn} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+/**
+ * Pick the distance to display: prefer actual (when status=done and the
+ * /plan/week response includes an `actual` payload) over the planned value.
+ * Planned remains visible as a small subtitle when actual differs (see plannedSub).
+ */
+function displayDistanceMi(workout: PlannedWorkoutOut): number | null {
+  if (
+    workout.status === 'done' &&
+    workout.actual !== null &&
+    workout.actual.distance_mi !== null
+  ) {
+    const a = parseFloat(workout.actual.distance_mi);
+    if (!Number.isNaN(a)) return a;
+  }
+  if (workout.distance_mi === null) return null;
+  const p = parseFloat(workout.distance_mi);
+  return Number.isNaN(p) ? null : p;
+}
+
 function titleText(workout: PlannedWorkoutOut): string {
   const family = asFamily(workout.family);
-  if (family !== 'running' || workout.distance_mi === null) return workout.title;
-  const mi = parseFloat(workout.distance_mi);
-  if (Number.isNaN(mi)) return workout.title;
+  if (family !== 'running') return workout.title;
+  const mi = displayDistanceMi(workout);
+  if (mi === null) return workout.title;
   return `${workout.title} · ${formatDistance(mi)}`;
+}
+
+/**
+ * If the actual differs from the planned, render a tiny "plan: 5.0mi" sub
+ * underneath the title so users can see both.
+ */
+function plannedSub(workout: PlannedWorkoutOut): string | null {
+  if (workout.status !== 'done' || workout.actual === null) return null;
+  if (workout.actual.distance_mi === null || workout.distance_mi === null) return null;
+  const a = parseFloat(workout.actual.distance_mi);
+  const p = parseFloat(workout.distance_mi);
+  if (Number.isNaN(a) || Number.isNaN(p)) return null;
+  // Only show planned sub when actual and planned differ by ≥0.1 mi
+  if (Math.abs(a - p) < 0.1) return null;
+  return `plan: ${formatDistance(p)}`;
 }
 
 /**
@@ -90,6 +124,7 @@ export function WorkoutCard({ workout, onPress, dense = false }: Props) {
   const status = STATUS_BADGE[workout.status];
   const wasOriginal = workout.original_snapshot;
   const sub = firstSentence(workout.intent_md);
+  const planSub = plannedSub(workout);
 
   const px = dense ? 10 : 14;
   const py = dense ? 8 : 12;
@@ -148,6 +183,13 @@ export function WorkoutCard({ workout, onPress, dense = false }: Props) {
               numberOfLines={subLines}
             >
               {sub}
+            </Text>
+          )}
+          {planSub !== null && (
+            <Text style={{
+              fontFamily: fonts.mono, fontSize: dense ? 9 : 10, color: colors.inkDim, marginTop: 2, letterSpacing: 0.5,
+            }}>
+              {planSub}
             </Text>
           )}
         </View>

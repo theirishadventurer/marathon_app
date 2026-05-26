@@ -62,12 +62,12 @@ function PillTabBarButton({
     >
       <View style={{
         backgroundColor: focused ? colors.accentRun : 'transparent',
-        paddingHorizontal: 14,
+        paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: radius.lg,
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: 6,
+        gap: 2,
       }}>
         {children}
       </View>

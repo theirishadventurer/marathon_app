@@ -29,6 +29,13 @@ export interface PlannedWorkoutSnapshot {
   target_hr_zone: string | null;
 }
 
+export interface PlannedActualOut {
+  /** Actual distance in miles, derived from CompletedWorkout.distance_m (m → mi). */
+  distance_mi: string | null;
+  duration_s: number;
+  started_at: string; // ISO datetime
+}
+
 export interface PlannedWorkoutOut {
   id: UUID;
   cycle_id: UUID;
@@ -46,6 +53,8 @@ export interface PlannedWorkoutOut {
   description_md: string;
   intent_md: string;
   original_snapshot: PlannedWorkoutSnapshot | null;
+  /** Populated by /plan/week when a matched CompletedWorkout exists; otherwise null. */
+  actual: PlannedActualOut | null;
 }
 
 export interface CompletedWorkoutOut {
@@ -184,6 +193,8 @@ export interface EditWorkoutRequest {
   distance_mi?: number | null;
   duration_min?: number | null;
   title?: string;
+  description_md?: string;
+  intent_md?: string;
 }
 
 export interface RescheduleOriginalRequest {

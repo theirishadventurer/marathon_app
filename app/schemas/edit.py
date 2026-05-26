@@ -17,6 +17,8 @@ class EditWorkoutRequest(BaseModel):
     distance_mi: Decimal | None = Field(default=None, ge=0, le=100)
     duration_min: int | None = Field(default=None, ge=0, le=600)
     title: str | None = Field(default=None, min_length=1, max_length=200)
+    description_md: str | None = Field(default=None, max_length=2000)
+    intent_md: str | None = Field(default=None, max_length=500)
 
 
 class RescheduleOriginalRequest(BaseModel):

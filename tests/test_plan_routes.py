@@ -51,6 +51,85 @@ async def test_plan_week_returns_7_days(seeded_client: AsyncClient, seeded_auth_
 
 
 @pytest.mark.asyncio
+async def test_plan_week_includes_actual_for_done_workouts(
+    seeded_client: AsyncClient, seeded_auth_headers: dict, seeded_db,
+):
+    """When a planned workout has a matched CompletedWorkout via Reconciliation,
+    /plan/week must include an `actual` payload (distance_mi, duration_s, started_at)
+    so the WorkoutCard can display actuals instead of the original planned values.
+
+    Before this fix: Week tab kept showing planned distance even after the
+    workout was logged completed, while Program dashboard showed the actual.
+    """
+    from datetime import date as date_cls
+
+    from sqlalchemy import select
+
+    from app.models.workout import PlannedWorkout, WorkoutStatus, WorkoutType
+
+    # Pick a planned easy run, log it completed at a deliberately different
+    # distance than the plan to prove the actual is what comes back.
+    workout = (
+        await seeded_db.execute(
+            select(PlannedWorkout)
+            .where(PlannedWorkout.type == WorkoutType.easy)
+            .where(PlannedWorkout.status == WorkoutStatus.planned)
+            .order_by(PlannedWorkout.scheduled_date)
+            .limit(1)
+        )
+    ).scalar_one()
+    wid = str(workout.id)
+    scheduled = workout.scheduled_date
+
+    # Log completion with distance != planned, so we can tell apart in the assertion
+    response = await seeded_client.post(
+        f"/workouts/{wid}/log-completed",
+        json={"distance_mi": 3.4, "duration_min": 32, "avg_pace_str": "9:25"},
+        headers=seeded_auth_headers,
+    )
+    assert response.status_code == 200, response.text
+
+    # Now GET /plan/week for the scheduled week
+    monday = scheduled - __import__("datetime").timedelta(days=scheduled.weekday())
+    resp = await seeded_client.get(
+        "/plan/week",
+        params={"date": monday.isoformat()},
+        headers=seeded_auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Find the done workout in the response
+    done_workouts = [
+        w
+        for d in body["days"]
+        for w in d["workouts"]
+        if w["id"] == wid
+    ]
+    assert len(done_workouts) == 1, f"Expected to find the logged workout, got {done_workouts}"
+    w_out = done_workouts[0]
+    assert w_out["status"] == "done"
+    # The new field: actual payload populated from Reconciliation → CompletedWorkout
+    assert "actual" in w_out, "PlannedWorkoutOut should include `actual` field"
+    actual = w_out["actual"]
+    assert actual is not None, "Done workouts should have non-null actual data"
+    # distance_mi rounded from 3.4mi → ~5471m → back to ~3.4mi
+    assert "distance_mi" in actual
+    assert abs(float(actual["distance_mi"]) - 3.4) < 0.05
+    assert actual["duration_s"] == 32 * 60
+    # Planned-but-not-done workouts must have actual=None
+    planned_workouts = [
+        w
+        for d in body["days"]
+        for w in d["workouts"]
+        if w["status"] == "planned"
+    ]
+    assert len(planned_workouts) > 0
+    for pw in planned_workouts:
+        assert pw.get("actual") is None, f"Planned workout {pw['id']} should have actual=None"
+    _ = date_cls  # silence unused import — kept for clarity in body
+
+
+@pytest.mark.asyncio
 async def test_plan_current_returns_shape(seeded_client: AsyncClient, seeded_auth_headers: dict):
     resp = await seeded_client.get("/plan/current", headers=seeded_auth_headers)
     assert resp.status_code == 200
