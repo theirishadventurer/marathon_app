@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 
@@ -152,20 +152,23 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
     : null;
 
   const onSkip = () => {
+    const doSkip = () => {
+      skip.mutate(workoutId, {
+        onSuccess: () => { navigation.goBack(); },
+      });
+    };
+    const message = 'It will be marked as skipped. You can move it instead from the Week view.';
+    // Alert.alert is a no-op in react-native-web, so the PWA needs window.confirm.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Skip workout?\n\n${message}`)) { doSkip(); }
+      return;
+    }
     Alert.alert(
       'Skip workout?',
-      'It will be marked as skipped. You can move it instead from the Week view.',
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Skip',
-          style: 'destructive',
-          onPress: () => {
-            skip.mutate(workoutId, {
-              onSuccess: () => { navigation.goBack(); },
-            });
-          },
-        },
+        { text: 'Skip', style: 'destructive', onPress: doSkip },
       ],
     );
   };
