@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
+from app.config import settings
 from app.lib.workout_family import family_for_planned
 from app.models.athlete import Athlete
 from app.models.plan import Cycle, Plan
@@ -36,6 +37,15 @@ async def seed_plan(
     Idempotent: running twice produces the same result with no duplicates.
     Returns summary counts.
     """
+    # Fail closed in production: never seed the single athlete with the
+    # repo-published default password (or an empty one). Dev/test pass an
+    # explicit password and run with APP_ENV unset, so they are unaffected.
+    if settings.is_production and password in ("changeme123", ""):
+        raise RuntimeError(
+            "SEED_PASSWORD is the in-repo default (or empty) in production. "
+            "Set a strong SEED_PASSWORD in the Railway environment before seeding."
+        )
+
     data = parse_plan(plan_path)
     athlete_data = data["athlete"]
 
