@@ -149,9 +149,34 @@ export interface ProposalOut {
   proposal_id: UUID;
   summary: string;
   options: AdapterOption[];
+  /** Lifecycle state from the backend: "pending" | "applied" | "discarded". */
+  state?: string | null;
 }
 export type ApplyChoice = AdapterOptionId | 'just_move' | 'cancel';
 export interface ApplyMoveRequest {
+  proposal_id: UUID;
+  choice: ApplyChoice;
+}
+
+// chat
+export interface ChatMessageOut {
+  id: UUID;
+  role: 'user' | 'assistant';
+  content_md: string;
+  created_at: IsoDateTime;
+  proposal: ProposalOut | null;
+}
+export interface ChatHistoryOut {
+  messages: ChatMessageOut[];
+}
+export interface PostChatRequest {
+  message: string;
+}
+export interface PostChatResponse {
+  reply_md: string;
+  proposal: ProposalOut | null;
+}
+export interface ChatProposalApplyRequest {
   proposal_id: UUID;
   choice: ApplyChoice;
 }
