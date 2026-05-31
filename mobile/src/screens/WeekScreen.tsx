@@ -180,7 +180,7 @@ export function WeekScreen() {
             onMoveRequest={requestMove}
             disabled={drag.pending !== null}
             onDayLayout={recordDayOffset}
-            onDragActive={(active) => { setScrollEnabled(active); }}
+            onDragActive={(active) => { setScrollEnabled(!active); }}
           />
         )}
       </ScrollView>
