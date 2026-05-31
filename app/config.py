@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://marathon:marathon@db:5432/marathon"
     secret_key: str = "change-me-to-a-real-secret"
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
     tz: str = "America/New_York"
     jwt_expiry_days: int = 30
 
