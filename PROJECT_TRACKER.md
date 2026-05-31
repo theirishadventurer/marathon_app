@@ -13,9 +13,21 @@
 | Session 2.9 — Plan v3.2 + personal deployment runbook | ✅ Done | `master` (merged) | v3.2 plan integrated; deployment runbook authored. |
 | Session 2.10 — Personal deploy executed + iPhone PWA bug batch | ✅ Done (Garmin IP-blocked) | `master` | App live: Railway API + Postgres + Vercel web/PWA + iPhone Add-to-Home-Screen. 6/7 bugs fixed (workout edit body refresh, DayToggle scroll-anchor, Tweak stats default open, Week shows actuals when done, bottom nav layout, drag-and-drop touch-web). Garmin sync defensively wrapped but blocked at Garmin's WAF (datacenter IP rate-limit, HTTP 429). Strava migration is the real fix. |
 | Strava integration (alternative to Garmin scraping) | ⏳ Backlog (now urgent — blocks Garmin in prod) | — | OAuth + webhook ingestion. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. **Promoted from "nice to have" to "needed" after Session 2.10's confirmed Garmin 429 from Railway IP.** Garmin→Strava is a native one-tap setting users already have. |
-| Session 3 — Daily Coach, Run Analyst, free-form chat | ⏳ Backlog | — | See `SESSION_3.md` |
+| Session 3 — Coach Chat (Gemini) + security hardening | 🔨 In progress | `session-3/coach-chat` | Free-form Gemini coach chat shipped (backend 128 tests green, mobile tsc clean). Security audit → fail-closed `SECRET_KEY`/`SEED_PASSWORD` in prod. iPhone Safari week-scroll bug fixed. Branch kept for live smoke-test before merge. Daily Coach / Run Analyst still deferred. |
 
 ## Sprint History
+
+### Session 3 — Coach Chat (Gemini) + Security Hardening (2026-05-30 → 2026-05-31)
+
+**Goal:** Fix the iPhone-Safari week-scroll bug, security-audit the public deployment, and build the free-form Gemini coach chat from the existing `session 3` scaffolding.
+
+**Delivered (branch `session-3/coach-chat`, 12 commits):**
+- **Scroll bug** — inverted `scrollEnabled` wiring in `WeekScreen.tsx` (gesture finalize disabled scroll instead of re-enabling it). One-char fix (`!active`).
+- **Security audit** — two HIGH findings: default JWT `SECRET_KEY` and default `SEED_PASSWORD`, both with no enforcement on a public URL. Fix: `APP_ENV=production`-gated fail-closed checks in `config.py` + `load_plan.py`; `app/scripts/reset_password.py` for live-row rotation; 8 new config tests. Authz audit found no IDOR (every route scopes by `Plan.athlete_id`).
+- **Coach Chat** — Gemini `gemini-2.5-flash`; `build_athlete_context` (live snapshot+markdown); `coach_chat.run_turn` (persistent `user_chat` thread); `propose_plan_change` function-calling reusing the proposal contract; shared `proposal_apply` service (extracted from `apply-move`) with §3.2 per-edit ownership re-validation; `GET/POST /chat` + `/chat/proposal/apply` (502/503 CORS-safe); mobile `ChatScreen`/`ChatBubble`/`useChat` reusing `ProposalSheet`.
+- **Verification:** backend 128 passed in-container; mobile `tsc --noEmit` clean. NOT yet runtime-smoke-tested (needs live `GEMINI_API_KEY` + device).
+
+**Remaining:** live smoke-test; set Railway `GEMINI_API_KEY` + `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`; rotate live athlete password; then merge to `master`.
 
 ### Session 2.10 — Personal Deploy Executed + iPhone PWA Bug Batch (2026-05-25 → 2026-05-26)
 

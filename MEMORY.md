@@ -1,8 +1,15 @@
 # Project Memory
 
-## Current Status (2026-05-26, Session 2.10)
+## Current Status (2026-05-31, Session 3)
 
-**Branch:** `master` (all session work merged; Sessions 1 / 2 / 2.5 / 2.6 / 2.7 / 2.8 / 2.9 / 2.10 = ~140 commits on master).
+**Branch:** `session-3/coach-chat` (12 commits, NOT yet merged — kept for live smoke-test). `master` holds Sessions 1–2.10.
+
+**Session 3 (this session):**
+- **Coach Chat shipped** — free-form Gemini (`gemini-2.5-flash`) coach on the Chat tab: live athlete context, persistent `user_chat` thread, and `propose_plan_change` function-calling that reuses the proposal/apply machinery via a new shared `proposal_apply` service (with §3.2 per-edit ownership re-validation). Backend 128 tests pass in-container; mobile `tsc` clean. Not yet runtime-smoke-tested (needs live `GEMINI_API_KEY` + device).
+- **Security hardening** — public-URL audit found default `SECRET_KEY` + `SEED_PASSWORD` with no enforcement. Added `APP_ENV=production`-gated fail-closed checks; `app/scripts/reset_password.py` for live-row rotation. No IDOR (routes scope by `Plan.athlete_id`). **User must set Railway `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`/`GEMINI_API_KEY` + rotate the live athlete password before/at merge.**
+- **Scroll bug** — fixed inverted `scrollEnabled` in `WeekScreen.tsx` (iPhone Safari couldn't scroll back up after reaching the bottom).
+
+**Prior status (2026-05-26, Session 2.10):**
 
 **State:**
 - Backend: 106/106 tests pass, ruff clean. Live on Railway at `https://marathonapp-production-cc63.up.railway.app`. Boot chain: `alembic upgrade head` → idempotent `python -m app.seed.load_plan` → uvicorn on `$PORT`. Postgres plugin linked via Variable Reference; 1 GB volume mounted at `/app/data` for Garmin tokens.
