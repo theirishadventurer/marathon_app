@@ -3,13 +3,12 @@ from __future__ import annotations
 import re
 import time
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
 from app.deps import get_current_athlete, get_db
 from app.lib.workout_family import family_for_planned
@@ -40,6 +39,11 @@ from app.schemas.workout import (
 )
 from app.services.agents.plan_adapter import propose_rebalance
 from app.services.cache_invalidation import invalidate_for_athlete
+from app.services.proposal_apply import (
+    ProposalApplyError,
+    ProposalNotFound,
+    apply_proposal,
+)
 
 _PACE_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
 
@@ -261,107 +265,24 @@ async def apply_move(
     athlete: Athlete = Depends(get_current_athlete),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. Find the workout
+    # 1. Workout 404 check (preserves the route's existing contract).
     result = await db.execute(
         select(PlannedWorkout)
         .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
         .join(Plan, Cycle.plan_id == Plan.id)
         .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
     )
-    planned = result.scalar_one_or_none()
-    if planned is None:
+    if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    # 2. Find the AgentMessage with matching proposal
-    result = await db.execute(
-        select(AgentMessage).where(
-            AgentMessage.related_workout_id == workout_id,
-            AgentMessage.proposal_state_json["proposal_id"].as_string() == str(body.proposal_id),
-        )
-    )
-    msg = result.scalar_one_or_none()
-    if msg is None:
-        raise HTTPException(status_code=404, detail="Proposal not found")
+    # 2. Delegate apply/cancel to the shared service (ownership re-validated within).
+    try:
+        await apply_proposal(db, athlete.id, body.proposal_id, body.choice)
+    except ProposalNotFound:
+        raise HTTPException(status_code=404, detail="Proposal not found") from None
+    except ProposalApplyError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
-    proposal = msg.proposal_state_json
-    choice = body.choice
-
-    if choice == "cancel":
-        proposal["state"] = "discarded"
-        flag_modified(msg, "proposal_state_json")
-        if proposal.get("created_by") == "reschedule_original":
-            await db.delete(planned)
-        await db.commit()
-        invalidate_for_athlete(athlete.id)
-        return {"ok": True}
-
-    # For just_move, option_a, option_b: move the primary workout
-    new_date = date.fromisoformat(proposal["new_date"])
-    planned.scheduled_date = new_date
-    planned.status = WorkoutStatus.moved
-
-    if choice == "just_move":
-        proposal["state"] = "applied"
-        proposal["applied_choice"] = "just_move"
-        flag_modified(msg, "proposal_state_json")
-        await db.commit()
-        invalidate_for_athlete(athlete.id)
-        return {"ok": True}
-
-    if choice not in ("option_a", "option_b"):
-        raise HTTPException(status_code=400, detail="Invalid choice")
-
-    # Find the chosen option
-    chosen = None
-    for opt in proposal.get("options", []):
-        if opt["id"] == choice:
-            chosen = opt
-            break
-    if chosen is None:
-        raise HTTPException(status_code=400, detail="Option not found in proposal")
-
-    # Apply edits from the chosen option
-    for edit in chosen.get("edits", []):
-        edit_workout_id = uuid.UUID(edit["workout_id"])
-        field = edit["field"]
-        value = edit["new_value"]
-
-        if field not in ("scheduled_date", "status"):
-            raise HTTPException(status_code=400, detail=f"Invalid edit field: {field}")
-
-        # Find the target workout and verify it belongs to this athlete
-        result = await db.execute(
-            select(PlannedWorkout)
-            .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
-            .join(Plan, Cycle.plan_id == Plan.id)
-            .where(
-                PlannedWorkout.id == edit_workout_id,
-                Plan.athlete_id == athlete.id,
-            )
-        )
-        target = result.scalar_one_or_none()
-        if target is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Workout {edit_workout_id} not found or not owned by athlete",
-            )
-
-        if field == "scheduled_date":
-            target.scheduled_date = date.fromisoformat(value)
-            target.status = WorkoutStatus.moved
-        elif field == "status":
-            valid_statuses = {"planned", "moved", "skipped"}
-            if value not in valid_statuses:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid status value: {value}",
-                )
-            target.status = WorkoutStatus(value)
-
-    proposal["state"] = "applied"
-    proposal["applied_choice"] = choice
-    flag_modified(msg, "proposal_state_json")
-    await db.commit()
     invalidate_for_athlete(athlete.id)
     return {"ok": True}
 

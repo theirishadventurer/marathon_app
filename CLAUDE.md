@@ -48,6 +48,17 @@
 - Validation gate per task: `cd mobile && npx tsc --noEmit`. No jest infra in this project yet.
 - "Append to file" patterns from plans can violate ruff E402 — always hoist imports to the top.
 
+**Coach Chat (Gemini + `google-genai`) — Session 3:**
+- **google-genai response shape differs from Anthropic.** Function calls come back on `response.candidates[0].content.parts[].function_call` (`.name`, `.args` dict) and text on `part.text` — NOT Anthropic's `content[].type=="tool_use"`/`.input`. Declare the tool as `types.Tool(function_declarations=[<raw JSON-schema dict>])` inside `types.GenerateContentConfig(system_instruction=..., tools=[...])`. google-genai **coerces a raw dict** — no need to build `FunctionDeclaration`/`Schema` objects. `system_instruction` is config, not a message.
+- **Mock the client, not the SDK.** `get_gemini_client()` is separated for test mocking (mirrors `get_anthropic_client`). In tests: `patch.object(coach_chat, "get_gemini_client", return_value=fake)` where `fake.models.generate_content.return_value/side_effect` is set. The real `types.*` config is still constructed (verified to accept the dict), so don't mock `types`.
+- **`gemini_api_key` defaults to `""` → `POST /chat` 503-gates.** Any chat route test that expects a 200/502 MUST `monkeypatch.setattr(settings, "gemini_api_key", "test-key")` first, or it short-circuits to 503 before the mocked client is reached.
+- **Shared `proposal_apply` service: the "move primary to `new_date`" step is drag-only.** `apply-move`'s old behavior moved the primary (`related_workout_id`) workout to `proposal["new_date"]` for `just_move` AND `option_*`. The extracted service gates that on `new_date` + `related_workout_id` both being present (drag proposals). Chat proposals carry NO `new_date`, so only the chosen option's `edits` apply. When extracting shared logic from a route, diff the *behavior* against existing tests — the option path moved two workouts, not one.
+- **§3.2 security: re-validate every edit's `workout_id` ownership before mutating** (`_owned_workout` join on `Plan.athlete_id`). LLM-emitted IDs are untrusted; the server is the authority even though the user also approves via `ProposalSheet`. There's a dedicated `test_apply_rejects_foreign_workout_id`.
+- **`GEMINI_API_KEY` is backend-only** (never `EXPO_PUBLIC_*`). Gemini failure → `HTTPException(502)`, missing key → 503 — both keep CORS headers (route-level try/except, per the 5xx-CORS gotcha).
+
+**Security — fail-closed config (Session 3):**
+- `app/config.py` enforces non-default `SECRET_KEY` (≥32 chars) and `app/seed/load_plan.py` enforces a non-default `SEED_PASSWORD` — **only when `APP_ENV=production`**. Local dev + the pytest suite (default `APP_ENV=development`) keep using in-repo defaults. Railway MUST set `APP_ENV=production` + `SECRET_KEY` + `SEED_PASSWORD` or the deploy fails closed (intended). The idempotent seed does NOT rotate an existing athlete's password — use `python -m app.scripts.reset_password` for the live row.
+
 **Workflow:**
 - Spec → plan → subagent-driven implementation. Specs in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`.
 - Per-branch session logs auto-written to `docs/session-logs/` by `.claude/helpers/session-log.mjs` on SessionEnd.

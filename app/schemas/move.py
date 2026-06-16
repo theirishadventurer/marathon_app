@@ -28,6 +28,10 @@ class ProposalOut(BaseModel):
     proposal_id: UUID
     summary: str
     options: list[AdapterOption]
+    # Lifecycle state ("pending" | "applied" | "discarded"). Optional so the
+    # drag-flow proposal endpoint (which omits it) is unaffected; the chat
+    # history needs it to know whether to still offer "Review proposal".
+    state: str | None = None
 
 
 class ApplyMoveRequest(BaseModel):
