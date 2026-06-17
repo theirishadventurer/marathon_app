@@ -39,3 +39,22 @@ def family_for_garmin_activity_type(activity_type: str) -> WorkoutFamily:
     if normalized in _GARMIN_STRENGTH_TYPES:
         return WorkoutFamily.strength
     return WorkoutFamily.other
+
+
+_STRAVA_RUNNING_TYPES = {
+    "run",
+    "trailrun",
+    "virtualrun",
+    "treadmill",
+}
+
+_STRAVA_STRENGTH_TYPES = {"weighttraining", "workout", "crossfit"}
+
+
+def family_for_strava_sport_type(sport_type: str) -> WorkoutFamily:
+    normalized = sport_type.lower().strip()
+    if normalized in _STRAVA_RUNNING_TYPES:
+        return WorkoutFamily.running
+    if normalized in _STRAVA_STRENGTH_TYPES:
+        return WorkoutFamily.strength
+    return WorkoutFamily.other
