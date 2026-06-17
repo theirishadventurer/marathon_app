@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_redirect_uri: str = ""
     tz: str = "America/New_York"
     jwt_expiry_days: int = 30
 

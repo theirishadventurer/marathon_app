@@ -66,3 +66,12 @@ class TestSeedPasswordFailClosed:
 
         counts = await seed_plan(db, plan_path="PLAN.md", password="testpass")
         assert counts["athletes"] == 1
+
+
+def test_strava_config_defaults_empty():
+    from app.config import Settings
+
+    s = Settings()
+    assert s.strava_client_id == ""
+    assert s.strava_client_secret == ""
+    assert s.strava_redirect_uri == ""
