@@ -79,3 +79,56 @@ def test_map_activity_zero_speed_pace_none():
     cw = map_activity(athlete_id, act)
     assert cw.avg_pace_s_per_km is None
     assert cw.avg_hr is None
+
+
+from datetime import UTC, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from sqlalchemy import func, select
+
+from app.models.reconciliation import Reconciliation
+from app.models.strava import StravaAuthState
+from app.services.strava import sync as sync_mod
+
+
+async def _connect(db, athlete):
+    db.add(
+        StravaAuthState(
+            athlete_id=athlete.id,
+            access_token="acc",
+            refresh_token="ref",
+            expires_at=datetime.now(UTC) + timedelta(hours=5),
+            athlete_strava_id=1,
+            scope="activity:read_all",
+        )
+    )
+    await db.commit()
+
+
+async def test_sync_ingests_and_dedups_without_reconcile(db, athlete):
+    await _connect(db, athlete)
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[[SAMPLE], []])  # one page then empty
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        svc = sync_mod.StravaSyncService(db, athlete.id)
+        report = await svc.sync()
+
+    assert report.synced_activities == 1
+    count = (
+        await db.execute(
+            select(func.count()).select_from(CompletedWorkout).where(
+                CompletedWorkout.athlete_id == athlete.id
+            )
+        )
+    ).scalar_one()
+    assert count == 1
+    recon_count = (
+        await db.execute(select(func.count()).select_from(Reconciliation))
+    ).scalar_one()
+    assert recon_count == 0  # ingest-only: no reconciliation, nothing marked done
+
+    fake.get_activities = AsyncMock(side_effect=[[SAMPLE], []])
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        report2 = await sync_mod.StravaSyncService(db, athlete.id).sync()
+    assert report2.synced_activities == 0  # dedup
