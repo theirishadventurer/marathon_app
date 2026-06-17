@@ -82,3 +82,49 @@ async def test_sync_503_when_unconfigured(client, athlete, auth_headers, monkeyp
     monkeypatch.setattr(settings, "strava_client_secret", "")
     r = await client.post("/strava/sync", headers=auth_headers)
     assert r.status_code == 503
+
+
+async def test_callback_rejects_missing_state(client, athlete, auth_headers):
+    # no state param -> FastAPI 422 (required query param) OR our 400; accept either
+    r = await client.get("/strava/callback?code=abc", headers=auth_headers)
+    assert r.status_code in (400, 422)
+
+
+async def test_callback_rejects_forged_state(client, athlete, auth_headers):
+    r = await client.get(
+        "/strava/callback?code=abc&state=forged.invalid.token", headers=auth_headers
+    )
+    assert r.status_code == 400
+
+
+async def test_callback_with_valid_state_persists_tokens(client, db, athlete, auth_headers):
+    from datetime import UTC, datetime
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from sqlalchemy import select
+
+    import app.routes.strava as strava_routes
+    from app.auth import create_strava_state_token
+    from app.models.strava import StravaAuthState
+
+    state = create_strava_state_token(str(athlete.id))
+    fake = MagicMock()
+    fake.exchange_code = AsyncMock(
+        return_value={
+            "access_token": "acc",
+            "refresh_token": "ref",
+            "expires_at": int(datetime.now(UTC).timestamp()) + 3600,
+            "scope": "activity:read_all",
+            "athlete": {"id": 42},
+        }
+    )
+    with patch.object(strava_routes, "get_strava_client", return_value=fake):
+        r = await client.get(
+            f"/strava/callback?code=xyz&state={state}", follow_redirects=False
+        )
+    assert r.status_code in (302, 307)  # redirect back to app
+    saved = (
+        await db.execute(select(StravaAuthState).where(StravaAuthState.athlete_id == athlete.id))
+    ).scalar_one()
+    assert saved.access_token == "acc"
+    assert saved.athlete_strava_id == 42

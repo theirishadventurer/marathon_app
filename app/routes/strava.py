@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import create_strava_state_token, decode_strava_state_token
 from app.config import settings
 from app.deps import get_current_athlete, get_db
 from app.models.athlete import Athlete
@@ -27,8 +28,11 @@ def _require_config() -> None:
 @router.get("/connect", response_model=StravaConnectOut)
 async def connect(athlete: Athlete = Depends(get_current_athlete)):
     _require_config()
+    state = create_strava_state_token(str(athlete.id))
     url = oauth.build_authorize_url(
-        client_id=settings.strava_client_id, redirect_uri=settings.strava_redirect_uri
+        client_id=settings.strava_client_id,
+        redirect_uri=settings.strava_redirect_uri,
+        state=state,
     )
     return StravaConnectOut(authorize_url=url)
 
@@ -36,10 +40,19 @@ async def connect(athlete: Athlete = Depends(get_current_athlete)):
 @router.get("/callback")
 async def callback(
     code: str,
-    athlete: Athlete = Depends(get_current_athlete),
+    state: str,
     db: AsyncSession = Depends(get_db),
 ):
     _require_config()
+    athlete_id = decode_strava_state_token(state)
+    if athlete_id is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+    athlete = (
+        await db.execute(select(Athlete).where(Athlete.id == athlete_id))
+    ).scalar_one_or_none()
+    if athlete is None:
+        raise HTTPException(status_code=400, detail="Unknown athlete in OAuth state")
+
     client = get_strava_client()
     try:
         resp = await client.exchange_code(
@@ -51,19 +64,19 @@ async def callback(
         raise HTTPException(status_code=502, detail=f"Strava token exchange failed: {e}") from e
 
     tokens = oauth.tokens_from_response(resp)
-    state = (
+    existing = (
         await db.execute(select(StravaAuthState).where(StravaAuthState.athlete_id == athlete.id))
     ).scalar_one_or_none()
-    if state is None:
-        state = StravaAuthState(athlete_id=athlete.id)
-        db.add(state)
-    state.access_token = tokens.access_token
-    state.refresh_token = tokens.refresh_token
-    state.expires_at = tokens.expires_at
-    state.scope = tokens.scope
-    state.athlete_strava_id = tokens.athlete_strava_id
-    state.last_error = None
-    state.last_error_at = None
+    if existing is None:
+        existing = StravaAuthState(athlete_id=athlete.id)
+        db.add(existing)
+    existing.access_token = tokens.access_token
+    existing.refresh_token = tokens.refresh_token
+    existing.expires_at = tokens.expires_at
+    existing.scope = tokens.scope
+    existing.athlete_strava_id = tokens.athlete_strava_id
+    existing.last_error = None
+    existing.last_error_at = None
     await db.commit()
 
     return RedirectResponse(url=settings.web_origin or "/")

@@ -27,12 +27,36 @@ async def test_strava_auth_state_persists(db, athlete):
 
 
 def test_build_authorize_url():
-    url = oauth.build_authorize_url(client_id="42", redirect_uri="https://x.app/strava/callback")
+    url = oauth.build_authorize_url(
+        client_id="42", redirect_uri="https://x.app/strava/callback", state="abc123"
+    )
     assert url.startswith("https://www.strava.com/oauth/authorize?")
     assert "client_id=42" in url
     assert "scope=activity%3Aread_all" in url or "scope=activity:read_all" in url
     assert "response_type=code" in url
     assert "redirect_uri=https%3A%2F%2Fx.app%2Fstrava%2Fcallback" in url
+    assert "state=abc123" in url
+
+
+def test_strava_state_token_roundtrip():
+    from app.auth import create_strava_state_token, decode_strava_state_token
+
+    tok = create_strava_state_token("athlete-uuid-123")
+    assert decode_strava_state_token(tok) == "athlete-uuid-123"
+
+
+def test_strava_state_token_rejects_garbage():
+    from app.auth import decode_strava_state_token
+
+    assert decode_strava_state_token("not.a.jwt") is None
+
+
+def test_strava_state_token_rejects_wrong_purpose():
+    # A normal access token must NOT be accepted as an OAuth state token.
+    from app.auth import create_access_token, decode_strava_state_token
+
+    access, _ = create_access_token("athlete-uuid-123")
+    assert decode_strava_state_token(access) is None
 
 
 def test_tokens_from_response():

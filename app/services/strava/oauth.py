@@ -19,13 +19,14 @@ class StravaTokens:
     athlete_strava_id: int | None = None
 
 
-def build_authorize_url(*, client_id: str, redirect_uri: str) -> str:
+def build_authorize_url(*, client_id: str, redirect_uri: str, state: str) -> str:
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": SCOPE,
         "approval_prompt": "auto",
+        "state": state,
     }
     return f"{AUTHORIZE_URL}?{urlencode(params)}"
 

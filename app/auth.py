@@ -27,3 +27,19 @@ def decode_access_token(token: str) -> str | None:
         return payload.get("sub")
     except JWTError:
         return None
+
+
+def create_strava_state_token(athlete_id: str) -> str:
+    expires_at = datetime.now(UTC) + timedelta(minutes=10)
+    payload = {"sub": athlete_id, "purpose": "strava_oauth", "exp": expires_at}
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+
+def decode_strava_state_token(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    except JWTError:
+        return None
+    if payload.get("purpose") != "strava_oauth":
+        return None
+    return payload.get("sub")
