@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +28,9 @@ from app.schemas.edit import (
     RescheduleOriginalRequest,
     RescheduleOriginalResponse,
 )
+from app.schemas.strava import CandidateOut, LinkCompletedRequest
+from app.services.strava.client import get_strava_client  # noqa: F401  (patched in tests)
+from app.services.strava.sync import StravaSyncService
 from app.schemas.move import ApplyMoveRequest, MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
 from app.schemas.workout import (
@@ -62,6 +65,13 @@ def _activity_type_for(family: WorkoutFamily) -> str:
         WorkoutFamily.strength: "strength_training",
         WorkoutFamily.other: "other",
     }[family]
+
+
+def _format_pace_from_completed(cw: CompletedWorkout) -> str | None:
+    if cw.avg_pace_s_per_km is None:
+        return None
+    s_per_mi = round(cw.avg_pace_s_per_km * 1.609344)
+    return f"{s_per_mi // 60}:{s_per_mi % 60:02d}"
 
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
@@ -456,6 +466,123 @@ async def log_completed(
 
     planned.status = WorkoutStatus.done
 
+    await db.commit()
+    await db.refresh(planned)
+    await db.refresh(completed)
+    await db.refresh(recon)
+
+    invalidate_for_athlete(athlete.id)
+
+    return LogCompletedResponse(
+        planned=PlannedWorkoutOut.model_validate(planned),
+        completed=CompletedWorkoutOut.model_validate(completed),
+        reconciliation=ReconciliationOut.model_validate(recon),
+    )
+
+
+@router.get("/{workout_id}/strava-candidates", response_model=list[CandidateOut])
+async def strava_candidates(
+    workout_id: uuid.UUID,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    planned = (
+        await db.execute(
+            select(PlannedWorkout)
+            .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+            .join(Plan, Cycle.plan_id == Plan.id)
+            .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+        )
+    ).scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    try:
+        await StravaSyncService(db, athlete.id).sync()
+    except Exception:  # noqa: BLE001
+        pass
+
+    linked_ids = select(Reconciliation.completed_id).where(Reconciliation.completed_id.is_not(None))
+    lo = planned.scheduled_date - timedelta(days=7)
+    hi = planned.scheduled_date + timedelta(days=7)
+    rows = (
+        (
+            await db.execute(
+                select(CompletedWorkout).where(
+                    CompletedWorkout.athlete_id == athlete.id,
+                    CompletedWorkout.activity_date >= lo,
+                    CompletedWorkout.activity_date <= hi,
+                    CompletedWorkout.id.not_in(linked_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    rows.sort(key=lambda cw: abs((cw.activity_date - planned.scheduled_date).days))
+    rows = rows[:5]
+
+    return [
+        CandidateOut(
+            completed_id=cw.id,
+            activity_date=cw.activity_date,
+            activity_type=cw.activity_type,
+            distance_mi=round(float(cw.distance_m) / 1609.344, 2) if cw.distance_m else None,
+            duration_min=round(cw.duration_s / 60),
+            avg_pace_str=_format_pace_from_completed(cw),
+            source=cw.source,
+        )
+        for cw in rows
+    ]
+
+
+@router.post("/{workout_id}/link-completed", response_model=LogCompletedResponse)
+async def link_completed(
+    workout_id: uuid.UUID,
+    body: LinkCompletedRequest,
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    planned = (
+        await db.execute(
+            select(PlannedWorkout)
+            .join(Cycle, PlannedWorkout.cycle_id == Cycle.id)
+            .join(Plan, Cycle.plan_id == Plan.id)
+            .where(PlannedWorkout.id == workout_id, Plan.athlete_id == athlete.id)
+        )
+    ).scalar_one_or_none()
+    if planned is None:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    if planned.status in (WorkoutStatus.done, WorkoutStatus.skipped):
+        raise HTTPException(status_code=409, detail=f"Cannot link a {planned.status.value} workout")
+
+    completed = (
+        await db.execute(
+            select(CompletedWorkout).where(
+                CompletedWorkout.id == body.completed_id,
+                CompletedWorkout.athlete_id == athlete.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if completed is None:
+        raise HTTPException(status_code=404, detail="Completed workout not found")
+
+    already = (
+        await db.execute(
+            select(Reconciliation).where(Reconciliation.completed_id == completed.id)
+        )
+    ).scalar_one_or_none()
+    if already is not None:
+        raise HTTPException(status_code=409, detail="Activity already linked")
+
+    recon = Reconciliation(
+        athlete_id=athlete.id,
+        planned_id=planned.id,
+        completed_id=completed.id,
+        match_confidence=Decimal("1.0"),
+    )
+    db.add(recon)
+    planned.status = WorkoutStatus.done
     await db.commit()
     await db.refresh(planned)
     await db.refresh(completed)
