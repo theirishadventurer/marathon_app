@@ -13,9 +13,23 @@
 | Session 2.9 — Plan v3.2 + personal deployment runbook | ✅ Done | `master` (merged) | v3.2 plan integrated; deployment runbook authored. |
 | Session 2.10 — Personal deploy executed + iPhone PWA bug batch | ✅ Done (Garmin IP-blocked) | `master` | App live: Railway API + Postgres + Vercel web/PWA + iPhone Add-to-Home-Screen. 6/7 bugs fixed (workout edit body refresh, DayToggle scroll-anchor, Tweak stats default open, Week shows actuals when done, bottom nav layout, drag-and-drop touch-web). Garmin sync defensively wrapped but blocked at Garmin's WAF (datacenter IP rate-limit, HTTP 429). Strava migration is the real fix. |
 | Strava integration (alternative to Garmin scraping) | ⏳ Backlog (now urgent — blocks Garmin in prod) | — | OAuth + webhook ingestion. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. **Promoted from "nice to have" to "needed" after Session 2.10's confirmed Garmin 429 from Railway IP.** Garmin→Strava is a native one-tap setting users already have. |
-| Session 3 — Coach Chat (Gemini) + security hardening | 🔨 In progress | `session-3/coach-chat` | Free-form Gemini coach chat shipped (backend 128 tests green, mobile tsc clean). Security audit → fail-closed `SECRET_KEY`/`SEED_PASSWORD` in prod. iPhone Safari week-scroll bug fixed. Branch kept for live smoke-test before merge. Daily Coach / Run Analyst still deferred. |
+| Session 3 — Coach Chat (Gemini) + security hardening | ✅ Done (merged + deployed) | `master` | Free-form Gemini coach chat live in prod. Security audit → fail-closed `SECRET_KEY`/`SEED_PASSWORD` in prod. iPhone Safari week-scroll bug fixed. Daily Coach / Run Analyst still deferred. |
+| Session 3.1 — Production activation + coach behavior fix | ✅ Done | `master` | Set Railway `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`/`GEMINI_API_KEY`; merged `session-3` → master; rotated live athlete password via `reset_password`; fixed coach over-proposing (system-prompt steering); SDLC principles added to global CLAUDE.md; repo junk cleanup. |
 
 ## Sprint History
+
+### Session 3.1 — Production Activation + Coach Behavior Fix (2026-06-15 → 2026-06-16)
+
+**Goal:** Activate the Session 3 work in production (env vars + merge + live login), then debug the coach's behavior based on first real use.
+
+**Delivered (on `master`):**
+- **Railway env + deploy** — set `APP_ENV=production`, `SECRET_KEY` (64-hex), `SEED_PASSWORD`, `GEMINI_API_KEY`; confirmed the fail-closed checks pass on boot. Discovered the Session 3 code (chat + fail-closed config) was never merged — `master` only had the old chat stub. Merged `session-3/coach-chat` → `master` (`c613725`), which is the deploy that actually activated coach chat + the security hardening + the iOS scroll fix.
+- **Live login rotation** — ran `python -m app.scripts.reset_password --email runner@marathon.dev --from-seed-env` inside the prod container via `railway ssh` (seed never rotates an existing athlete's password). Athlete `7ff7b20e-…` now logs in with the `SEED_PASSWORD` value.
+- **Coach behavior fix (`68765b8`)** — first live use surfaced the coach throwing plan-change proposals without conversing. Systematic-debugging root cause: function-calling runs in AUTO mode with a system prompt that gave **no policy on *when* to propose**, so Gemini over-fired `propose_plan_change` on benign messages (the intended converse-first contract lived only in mocked tests). Fix: explicit "How to interact" policy in `COACH_SYSTEM_PROMPT` — converse by default, ask clarifying questions, only propose on an explicit change request, and periodically remind the athlete in plain text that the plan can be adjusted. No logic change; 128 backend tests green.
+- **Global CLAUDE.md** — added a Software Development Lifecycle (SDLC) Principles section (test-alongside-code, maintainability, secure coding, full-arc thinking).
+- **Repo hygiene** — removed 46 junk untracked files (0-byte shell-redirect fragments + a typo'd root `package.json`/`package-lock.json` from a stray `npm install -g`). Flagged `docs/household-financial-platform-spec_1.md` as a different project's spec to relocate.
+
+**Verification:** backend 128/128 green in-container. Coach behavior fix needs live smoke-test (depends on external Gemini model — mocked in tests). Coach chat confirmed responding in prod; Garmin sync still environmentally blocked.
 
 ### Session 3 — Coach Chat (Gemini) + Security Hardening (2026-05-30 → 2026-05-31)
 

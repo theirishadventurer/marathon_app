@@ -1,10 +1,16 @@
 # Project Memory
 
-## Current Status (2026-05-31, Session 3)
+## Current Status (2026-06-16, Session 3.1)
 
-**Branch:** `session-3/coach-chat` (12 commits, NOT yet merged — kept for live smoke-test). `master` holds Sessions 1–2.10.
+**Branch:** `master` — Session 3 is merged and LIVE in production. Railway has `APP_ENV=production` + `SECRET_KEY` + `SEED_PASSWORD` + `GEMINI_API_KEY` set; fail-closed checks pass on boot. Live login `runner@marathon.dev` (athlete `7ff7b20e-…`) rotated to the `SEED_PASSWORD` value via `app.scripts.reset_password` run through `railway ssh`.
 
-**Session 3 (this session):**
+**Session 3.1 (this session) — production activation + coach behavior fix:**
+- **Activated Session 3 in prod.** The chat + fail-closed config was never merged; `master` had only the old chat stub. Merged `session-3/coach-chat` → `master` (`c613725`) — that push is what actually shipped coach chat + security hardening + the iOS scroll fix. Set the four Railway env vars first (correct order — fail-closed needs the values present).
+- **Coach over-proposing fix (`68765b8`).** Live use showed the coach firing plan-change proposals instead of conversing. Root cause: function-calling AUTO mode + a system prompt with no "when to propose" policy. Fixed by adding an explicit converse-first / propose-only-on-request policy (plus a periodic plain-text reminder that the plan can be adjusted) to `COACH_SYSTEM_PROMPT`. Behavior fix still needs a live smoke-test (external model, mocked in tests).
+- **Global CLAUDE.md** gained an SDLC Principles section (test-with-code, maintainability, secure coding, full-arc thinking).
+- **Repo hygiene:** removed 46 junk untracked files; flagged `docs/household-financial-platform-spec_1.md` (a different project's spec) for relocation.
+
+**Prior — Session 3 (2026-05-30 → 31):**
 - **Coach Chat shipped** — free-form Gemini (`gemini-2.5-flash`) coach on the Chat tab: live athlete context, persistent `user_chat` thread, and `propose_plan_change` function-calling that reuses the proposal/apply machinery via a new shared `proposal_apply` service (with §3.2 per-edit ownership re-validation). Backend 128 tests pass in-container; mobile `tsc` clean. Not yet runtime-smoke-tested (needs live `GEMINI_API_KEY` + device).
 - **Security hardening** — public-URL audit found default `SECRET_KEY` + `SEED_PASSWORD` with no enforcement. Added `APP_ENV=production`-gated fail-closed checks; `app/scripts/reset_password.py` for live-row rotation. No IDOR (routes scope by `Plan.athlete_id`). **User must set Railway `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`/`GEMINI_API_KEY` + rotate the live athlete password before/at merge.**
 - **Scroll bug** — fixed inverted `scrollEnabled` in `WeekScreen.tsx` (iPhone Safari couldn't scroll back up after reaching the bottom).
@@ -110,6 +116,11 @@
 - **iOS personal-install economics.** Apple Developer Program ($99/yr) gives clean TestFlight + 1-year ad-hoc installs. Free Apple ID needs 7-day re-signs. PWA via Expo web → Vercel → Safari "Add to Home Screen" avoids both: fullscreen + custom splash + your icon, no signing. Tradeoff: bottom-sheets / drag-to-move / `expo-secure-store` need web-fallback consideration (most already handled in this codebase).
 - **Garmin tokens are on-disk state.** `./data/garmin_tokens/<athlete_id>/tokens.json` — on Railway, mount a 1 GB volume at `/app/data` or every redeploy silently breaks Garmin sync (tokens vanish, scraper tries fresh login, hits Garmin auth wall).
 - **`EXPO_PUBLIC_*` env vars are inlined into the JS bundle.** Visible to any client. Fine for API base URL; never for secrets. Vercel UX shows them in the env panel like any other var so it's easy to forget the distinction.
+
+### LLM / Coach Chat steering (Session 3.1)
+- **Gemini function-calling defaults to AUTO mode** when `tools=[...]` is passed with no `tool_config`. The model decides each turn whether to call the tool — so "when to use the tool" must be steered by the **system prompt**, not assumed. With a permissive prompt + a context blob full of editable workout IDs + an available mutation tool, `gemini-2.5-flash` over-eagerly fires the function. Fix = an explicit interaction policy (converse by default; ask clarifying questions; only call the tool on an explicit request). Keep AUTO — never force `ANY` (forces a call) or `NONE` (disables proposals).
+- **Mocked LLM tests can't verify model *behavior*.** `test_coach_chat.py` mocks `generate_content`, so it validates the converse-vs-propose *contract* (text → text, change-request → proposal) but never exercises the real model's decision — exactly where prod diverged. When a fix depends on an external model, say so and require a live smoke-test; don't claim "done" off green unit tests alone.
+- **Coach-chat latency:** v1 sends the full athlete context every turn (no `CachedContent`) and 2.5-flash has "thinking" on by default. If slowness matters, add a `thinking_config` budget and/or cache the context — tracked as a separate change, not bundled with behavior fixes.
 
 ## Reference
 
