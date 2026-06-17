@@ -23,6 +23,8 @@ class StravaAuthState(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     athlete_strava_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     scope: Mapped[str | None] = mapped_column(Text, nullable=True)
-    last_successful_sync: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_successful_sync: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    last_error_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
