@@ -2,6 +2,7 @@ from app.models.agent import AgentKind, AgentMessage, MessageRole
 from app.models.athlete import Athlete
 from app.models.base import Base
 from app.models.garmin import GarminAuthState
+from app.models.strava import StravaAuthState  # noqa: F401
 from app.models.metrics import DailyMetric
 from app.models.plan import Cycle, Plan
 from app.models.plan_history import PlanHistory
@@ -24,6 +25,7 @@ __all__ = [
     "DailyMetric",
     "GarminAuthState",
     "MessageRole",
+    "StravaAuthState",
     "Plan",
     "PlanHistory",
     "PlannedWorkout",
