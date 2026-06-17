@@ -118,6 +118,11 @@ class CompletedWorkout(UUIDMixin, Base):
     avg_pace_s_per_km: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     elevation_gain_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
     calories: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    strava_activity_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default="manual")
+    avg_cadence: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+    avg_watts: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
+    relative_effort: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     fit_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_summary_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
