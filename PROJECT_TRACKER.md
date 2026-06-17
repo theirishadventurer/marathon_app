@@ -15,8 +15,27 @@
 | Strava integration (alternative to Garmin scraping) | ⏳ Backlog (now urgent — blocks Garmin in prod) | — | OAuth + webhook ingestion. Stub at `docs/superpowers/specs/2026-05-07-feat-strava-integration-backlog.md`. **Promoted from "nice to have" to "needed" after Session 2.10's confirmed Garmin 429 from Railway IP.** Garmin→Strava is a native one-tap setting users already have. |
 | Session 3 — Coach Chat (Gemini) + security hardening | ✅ Done (merged + deployed) | `master` | Free-form Gemini coach chat live in prod. Security audit → fail-closed `SECRET_KEY`/`SEED_PASSWORD` in prod. iPhone Safari week-scroll bug fixed. Daily Coach / Run Analyst still deferred. |
 | Session 3.1 — Production activation + coach behavior fix | ✅ Done | `master` | Set Railway `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`/`GEMINI_API_KEY`; merged `session-3` → master; rotated live athlete password via `reset_password`; fixed coach over-proposing (system-prompt steering); SDLC principles added to global CLAUDE.md; repo junk cleanup. |
+| Session 4 — Strava integration backend (polling) | 🔨 Built + QA'd, NOT merged | `session-4/strava-integration` | Full OAuth polling-ingestion backend (19 commits) via subagent-driven dev + overnight adversarial QA. 159 tests green. Ingest-only sync + explicit mark-complete linkage. QA found+fixed OAuth CSRF, 3 sync crash modes (C1/H1/M1), session-poisoning. **Pending:** Strava app registration + Railway env vars + live smoke-test, then merge. Mobile UI is a separate plan. |
 
 ## Sprint History
+
+### Session 4 — Strava Integration Backend + Overnight QA (2026-06-16 → 2026-06-17)
+
+**Goal:** Build the Strava polling-ingestion backend (the durable fix for Garmin's WAF block) via subagent-driven development, then run an autonomous overnight QA + bug-fix pass. Auto-fix on branch; no merge.
+
+**Status:** ✅ Built + hardened on `session-4/strava-integration` (19 commits, **unmerged**). 159 tests pass, ruff clean. Full report: `docs/session-logs/2026-06-17-overnight-strava-qa.md`.
+
+**Delivered (plan Tasks 1–14):** config + `family_for_strava_sport_type`; `CompletedWorkout` columns (`strava_activity_id`/`source`/`avg_cadence`/`avg_watts`/`relative_effort`); `StravaAuthState` (DB tokens, TIMESTAMPTZ); `app/services/strava/{oauth,client,sync}.py` (ingest-only sync, dedup, inline refresh, pagination); routes connect/callback/status/sync/disconnect (CORS-safe); mark-complete linkage (`strava-candidates` + `link-completed`, ownership re-validated); Alembic migration `3ef08f92d555`.
+
+**Overnight QA found + fixed (Tasks 15–19):**
+- OAuth **CSRF + callback-auth** gap → signed state-token (`aea79bd`).
+- Adversarial review found 3 **confirmed sync crash modes** (C1 KeyError, H1 in-batch dup, M1 numeric overflow) + C2 session poisoning + H2 all-or-nothing commit → hardened with per-activity skip, in-batch dedup, per-page commit, clamps, typed errors, `last_error` wiring (`9bf21d4`).
+- Round-2 verification caught residual bugs in the round-1 fix (`expunge` vs `rollback`; unclamped distance/calories/hr) → fixed (`39890fc`).
+- Fixed pre-existing date-rot in `test_plan_start_date.py` (`34b7141`); added refresh/pagination coverage (`2ab27c6`).
+
+**Remaining before live:** register Strava app + set Railway `STRAVA_CLIENT_ID/SECRET/REDIRECT_URI`; live smoke-test; then merge. Mobile UI (Settings card + MARK DONE picker) is a separate plan. **Backlog (non-blocking):** sync cursor (`last_successful_sync=now()`) can skip late-uploaded/backdated activities.
+
+**Specs/plans:** `docs/superpowers/specs/2026-06-16-strava-integration-design.md`, `docs/superpowers/plans/2026-06-16-strava-integration-backend.md`.
 
 ### Session 3.1 — Production Activation + Coach Behavior Fix (2026-06-15 → 2026-06-16)
 

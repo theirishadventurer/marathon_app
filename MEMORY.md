@@ -1,6 +1,22 @@
 # Project Memory
 
-## Current Status (2026-06-16, Session 3.1)
+## Current Status (2026-06-17, Session 4)
+
+**Branch:** `session-4/strava-integration` — Strava polling-ingestion backend BUILT + overnight-QA'd, **NOT merged** (awaiting review). 19 commits; 159 tests green; ruff clean. `master` holds Sessions 1–3.1.
+
+**Session 4 (subagent-driven dev + autonomous overnight QA):**
+- Built the full Strava OAuth polling backend per the approved spec/plan: ingest-only `StravaSyncService` (the discrepancy fix is **explicit mark-complete linkage**, not fuzzy auto-reconcile — `reconcile()` is untouched), DB-stored tokens, mark-complete candidate picker + `link-completed` (ownership re-validated).
+- **Overnight adversarial QA earned its keep:** found + fixed OAuth CSRF/callback-auth (signed state token), and 3 confirmed sync crash modes (C1 missing-field KeyError, H1 in-batch dup IntegrityError, M1 SmallInteger pace overflow) that each aborted the whole batch + poison-pilled future syncs. A round-2 verification then caught residual bugs in the round-1 fix (expunge→rollback; unclamped distance/calories/hr).
+- **Pending before live:** register Strava app + set Railway `STRAVA_CLIENT_ID/SECRET/REDIRECT_URI`; live smoke-test; then merge. Mobile UI is a separate plan. Backlog: sync cursor can skip late-uploaded/backdated activities.
+- Report: `docs/session-logs/2026-06-17-overnight-strava-qa.md`.
+
+**Lessons (Session 4):**
+- **Subagent-driven + local Docker is fragile:** a subagent that ran `docker compose exec` in the BACKGROUND wedged the Docker daemon (required a manual Desktop restart). Fix: instruct implementers to run tests SYNCHRONOUSLY with a `timeout`, never `run_in_background`. Subagents also kept creating 0-byte junk files from botched shell redirects — sweep them each round.
+- **Mock-only test suites hide real bugs:** every Strava unit test passed (happy-path fixtures) while the ingest path had 3+ crash modes on adversarial input. The adversarial-review subagent (told to FIND bugs, with probes) is what surfaced them. Run it, and run a SECOND verification pass on the fix — round 2 found the round-1 fix was itself incomplete (`expunge` didn't clear an aborted txn; half the numerics were still unclamped).
+- **OAuth state token pattern:** reuse the existing jose JWT infra — sign `{sub, purpose:"strava_oauth", exp:10min}` with `secret_key`; the callback resolves the athlete from `state` (a browser redirect can't carry a Bearer header), and the `purpose` claim stops an access token being replayed as state.
+- **asyncpg + tz:** writing a tz-aware `datetime.now(UTC)` into a `TIMESTAMP WITHOUT TIME ZONE` column raises; make absolute-instant columns `DateTime(timezone=True)`. `start_date_local` is wall-clock → store naive.
+
+## Prior Status (2026-06-16, Session 3.1)
 
 **Branch:** `master` — Session 3 is merged and LIVE in production. Railway has `APP_ENV=production` + `SECRET_KEY` + `SEED_PASSWORD` + `GEMINI_API_KEY` set; fail-closed checks pass on boot. Live login `runner@marathon.dev` (athlete `7ff7b20e-…`) rotated to the `SEED_PASSWORD` value via `app.scripts.reset_password` run through `railway ssh`.
 
