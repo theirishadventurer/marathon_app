@@ -25,3 +25,11 @@ async def test_completed_workout_accepts_strava_columns(db, athlete):
     assert cw.strava_activity_id == 123456789
     assert cw.source == "strava"
     assert cw.relative_effort == 42
+
+
+from app.services.strava.client import StravaClient, get_strava_client
+
+
+def test_get_strava_client_returns_client():
+    c = get_strava_client()
+    assert isinstance(c, StravaClient)
