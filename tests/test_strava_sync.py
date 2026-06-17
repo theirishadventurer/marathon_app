@@ -125,3 +125,74 @@ async def test_sync_ingests_and_dedups_without_reconcile(db, athlete):
     with patch.object(sync_mod, "get_strava_client", return_value=fake):
         report2 = await sync_mod.StravaSyncService(db, athlete.id).sync()
     assert report2.synced_activities == 0  # dedup
+
+
+async def test_sync_refreshes_expired_token(db, athlete):
+    # Connect with an already-expired token so _ensure_fresh must refresh.
+    db.add(
+        StravaAuthState(
+            athlete_id=athlete.id,
+            access_token="old",
+            refresh_token="oldref",
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+            athlete_strava_id=1,
+            scope="activity:read_all",
+        )
+    )
+    await db.commit()
+
+    fake = MagicMock()
+    fake.refresh_token = AsyncMock(
+        return_value={
+            "access_token": "newacc",
+            "refresh_token": "newref",
+            "expires_at": int(datetime.now(UTC).timestamp()) + 21600,
+            "scope": "activity:read_all",
+        }
+    )
+    fake.get_activities = AsyncMock(return_value=[])  # no activities; we only care about refresh
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        await sync_mod.StravaSyncService(db, athlete.id).sync()
+
+    fake.refresh_token.assert_awaited_once()
+    # the access token used for get_activities must be the refreshed one
+    _, kwargs = fake.get_activities.call_args
+    assert kwargs["access_token"] == "newacc"
+    # and it was persisted
+    refreshed = (
+        await db.execute(select(StravaAuthState).where(StravaAuthState.athlete_id == athlete.id))
+    ).scalar_one()
+    assert refreshed.access_token == "newacc"
+    assert refreshed.refresh_token == "newref"
+
+
+async def test_sync_paginates_multiple_pages(db, athlete):
+    await _connect(db, athlete)  # fresh token
+
+    def _page(start, count):
+        out = []
+        for i in range(start, start + count):
+            a = dict(SAMPLE)
+            a["id"] = 900000 + i
+            out.append(a)
+        return out
+
+    full_page = _page(0, 100)   # exactly per_page -> triggers another fetch
+    short_page = _page(100, 5)  # < 100 -> loop stops after this
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[full_page, short_page])
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        report = await sync_mod.StravaSyncService(db, athlete.id).sync()
+
+    assert report.synced_activities == 105
+    assert fake.get_activities.await_count == 2
+    count = (
+        await db.execute(
+            select(func.count()).select_from(CompletedWorkout).where(
+                CompletedWorkout.athlete_id == athlete.id
+            )
+        )
+    ).scalar_one()
+    assert count == 105
