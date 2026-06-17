@@ -88,7 +88,9 @@ class StravaSyncService:
                 client_secret=settings.strava_client_secret,
                 refresh_token=state.refresh_token,
             )
-            tokens = oauth.tokens_from_response({**resp, "athlete": {"id": state.athlete_strava_id}})
+            tokens = oauth.tokens_from_response(
+                {**resp, "athlete": {"id": state.athlete_strava_id}}
+            )
             state.access_token = tokens.access_token
             state.refresh_token = tokens.refresh_token
             state.expires_at = tokens.expires_at

@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 
 from app.models.strava import StravaAuthState
+from app.services.strava import oauth
 
 
 async def test_strava_auth_state_persists(db, athlete):
@@ -23,9 +24,6 @@ async def test_strava_auth_state_persists(db, athlete):
     assert got.access_token == "acc"
     assert got.athlete_strava_id == 987654
     assert got.last_successful_sync is None
-
-
-from app.services.strava import oauth
 
 
 def test_build_authorize_url():

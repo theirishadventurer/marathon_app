@@ -28,11 +28,9 @@ from app.schemas.edit import (
     RescheduleOriginalRequest,
     RescheduleOriginalResponse,
 )
-from app.schemas.strava import CandidateOut, LinkCompletedRequest
-from app.services.strava.client import get_strava_client  # noqa: F401  (patched in tests)
-from app.services.strava.sync import StravaSyncService
 from app.schemas.move import ApplyMoveRequest, MoveRequest, ProposalOut
 from app.schemas.plan import PlannedWorkoutOut
+from app.schemas.strava import CandidateOut, LinkCompletedRequest
 from app.schemas.workout import (
     CompletedWorkoutOut,
     LogCompletedRequest,
@@ -47,6 +45,8 @@ from app.services.proposal_apply import (
     ProposalNotFound,
     apply_proposal,
 )
+from app.services.strava.client import get_strava_client  # noqa: F401  (patched in tests)
+from app.services.strava.sync import StravaSyncService
 
 _PACE_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
 
@@ -497,12 +497,14 @@ async def strava_candidates(
     if planned is None:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    try:
+    try:  # noqa: SIM105
         await StravaSyncService(db, athlete.id).sync()
     except Exception:  # noqa: BLE001
         pass
 
-    linked_ids = select(Reconciliation.completed_id).where(Reconciliation.completed_id.is_not(None))
+    linked_ids = select(Reconciliation.completed_id).where(
+        Reconciliation.completed_id.is_not(None)
+    )
     lo = planned.scheduled_date - timedelta(days=7)
     hi = planned.scheduled_date + timedelta(days=7)
     rows = (
@@ -554,7 +556,9 @@ async def link_completed(
     if planned is None:
         raise HTTPException(status_code=404, detail="Workout not found")
     if planned.status in (WorkoutStatus.done, WorkoutStatus.skipped):
-        raise HTTPException(status_code=409, detail=f"Cannot link a {planned.status.value} workout")
+        raise HTTPException(
+            status_code=409, detail=f"Cannot link a {planned.status.value} workout"
+        )
 
     completed = (
         await db.execute(

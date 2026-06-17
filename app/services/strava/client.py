@@ -13,7 +13,9 @@ class StravaClient:
     """Thin async wrapper around Strava's REST API. The single network seam;
     tests patch get_strava_client() to return a fake (mirrors get_gemini_client)."""
 
-    async def exchange_code(self, *, client_id: str, client_secret: str, code: str) -> dict[str, Any]:
+    async def exchange_code(
+        self, *, client_id: str, client_secret: str, code: str
+    ) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=15) as http:
             r = await http.post(
                 TOKEN_URL,

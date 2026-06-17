@@ -1,8 +1,16 @@
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from sqlalchemy import func, select
+
+from app.models.reconciliation import Reconciliation
+from app.models.strava import StravaAuthState
 from app.models.workout import CompletedWorkout, WorkoutFamily
+from app.services.strava import sync as sync_mod
+from app.services.strava.client import StravaClient, get_strava_client
+from app.services.strava.sync import map_activity
 
 
 async def test_completed_workout_accepts_strava_columns(db, athlete):
@@ -28,15 +36,10 @@ async def test_completed_workout_accepts_strava_columns(db, athlete):
     assert cw.relative_effort == 42
 
 
-from app.services.strava.client import StravaClient, get_strava_client
-
-
 def test_get_strava_client_returns_client():
     c = get_strava_client()
     assert isinstance(c, StravaClient)
 
-
-from app.services.strava.sync import map_activity
 
 SAMPLE = {
     "id": 111222333,
@@ -79,16 +82,6 @@ def test_map_activity_zero_speed_pace_none():
     cw = map_activity(athlete_id, act)
     assert cw.avg_pace_s_per_km is None
     assert cw.avg_hr is None
-
-
-from datetime import UTC, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from sqlalchemy import func, select
-
-from app.models.reconciliation import Reconciliation
-from app.models.strava import StravaAuthState
-from app.services.strava import sync as sync_mod
 
 
 async def _connect(db, athlete):

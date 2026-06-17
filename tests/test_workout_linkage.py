@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy import select
 
 from app.config import settings
-from app.models.plan import Cycle, Plan
 from app.models.reconciliation import Reconciliation
 from app.models.strava import StravaAuthState
 from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutFamily, WorkoutStatus
@@ -14,7 +13,11 @@ from app.models.workout import CompletedWorkout, PlannedWorkout, WorkoutFamily, 
 
 async def _first_planned(db):
     return (
-        await db.execute(select(PlannedWorkout).where(PlannedWorkout.status == WorkoutStatus.planned).limit(1))
+        await db.execute(
+            select(PlannedWorkout)
+            .where(PlannedWorkout.status == WorkoutStatus.planned)
+            .limit(1)
+        )
     ).scalar_one()
 
 
@@ -91,7 +94,11 @@ async def test_link_rejects_double_link(seeded_db, seeded_auth_headers, client):
     cw = _completed(athlete_id, planned.scheduled_date, 888)
     db.add(cw)
     await db.flush()
-    db.add(Reconciliation(athlete_id=athlete_id, planned_id=None, completed_id=cw.id, match_confidence=None))
+    db.add(
+        Reconciliation(
+            athlete_id=athlete_id, planned_id=None, completed_id=cw.id, match_confidence=None
+        )
+    )
     await db.commit()
     await db.refresh(cw)
 
@@ -103,7 +110,9 @@ async def test_link_rejects_double_link(seeded_db, seeded_auth_headers, client):
     assert r.status_code == 409
 
 
-async def test_candidates_returns_nearest_unlinked(seeded_db, seeded_auth_headers, client, monkeypatch):
+async def test_candidates_returns_nearest_unlinked(
+    seeded_db, seeded_auth_headers, client, monkeypatch
+):
     monkeypatch.setattr(settings, "strava_client_id", "42")
     monkeypatch.setattr(settings, "strava_client_secret", "s")
     monkeypatch.setattr(settings, "strava_redirect_uri", "https://x.app/cb")

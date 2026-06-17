@@ -16,7 +16,11 @@ router = APIRouter(prefix="/strava", tags=["strava"])
 
 
 def _require_config() -> None:
-    if not (settings.strava_client_id and settings.strava_client_secret and settings.strava_redirect_uri):
+    if not (
+        settings.strava_client_id
+        and settings.strava_client_secret
+        and settings.strava_redirect_uri
+    ):
         raise HTTPException(status_code=503, detail="Strava is not configured")
 
 
@@ -107,7 +111,7 @@ async def disconnect(
     ).scalar_one_or_none()
     if state is not None:
         client = get_strava_client()
-        try:
+        try:  # noqa: SIM105
             await client.deauthorize(access_token=state.access_token)
         except Exception:  # noqa: BLE001
             pass
