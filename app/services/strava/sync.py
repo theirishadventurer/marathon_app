@@ -48,8 +48,12 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
         avg_pace = None
 
     has_hr = act.get("has_heartrate")
-    avg_hr = round(act["average_heartrate"]) if has_hr and act.get("average_heartrate") else None
-    max_hr = round(act["max_heartrate"]) if has_hr and act.get("max_heartrate") else None
+    raw_avg_hr = (
+        round(act["average_heartrate"]) if has_hr and act.get("average_heartrate") else None
+    )
+    avg_hr = raw_avg_hr if raw_avg_hr is None or raw_avg_hr <= _MAX_SMALLINT else None
+    raw_max_hr = round(act["max_heartrate"]) if has_hr and act.get("max_heartrate") else None
+    max_hr = raw_max_hr if raw_max_hr is None or raw_max_hr <= _MAX_SMALLINT else None
 
     def _num(key: str) -> Decimal | None:
         v = act.get(key)
@@ -64,6 +68,12 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
     raw_effort = int(act["suffer_score"]) if act.get("suffer_score") is not None else None
     relative_effort = raw_effort if raw_effort is None or raw_effort <= _MAX_SMALLINT else None
 
+    raw_distance = _num("distance")
+    distance_m = raw_distance if raw_distance is None or raw_distance <= _MAX_DISTANCE else None
+
+    raw_calories = int(act["calories"]) if act.get("calories") is not None else None
+    calories = raw_calories if raw_calories is None or raw_calories <= _MAX_SMALLINT else None
+
     return CompletedWorkout(
         athlete_id=athlete_id,
         strava_activity_id=int(act["id"]),
@@ -73,12 +83,12 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
         activity_type=str(sport),
         family=family_for_strava_sport_type(str(sport)),
         duration_s=int(act.get("moving_time", 0)),
-        distance_m=_num("distance"),
+        distance_m=distance_m,
         avg_hr=avg_hr,
         max_hr=max_hr,
         avg_pace_s_per_km=avg_pace,
         elevation_gain_m=_num("total_elevation_gain"),
-        calories=int(act["calories"]) if act.get("calories") is not None else None,
+        calories=calories,
         avg_cadence=avg_cadence,
         avg_watts=avg_watts,
         relative_effort=relative_effort,

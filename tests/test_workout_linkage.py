@@ -131,20 +131,28 @@ async def test_candidates_returns_nearest_unlinked(
     far = _completed(athlete_id, planned.scheduled_date + timedelta(days=20), 2)
     db.add_all([near, far])
     await db.commit()
+    # Capture IDs before the request: rollback() in the route on a shared test
+    # session expires ORM objects, so capture scalars now.
+    near_id = str(near.id)
+    far_id = str(far.id)
 
     import app.routes.workouts as wr
+    import app.services.strava.sync as sync_mod_local
 
     fake = MagicMock()
     fake.get_activities = AsyncMock(return_value=[])
-    with patch.object(wr, "get_strava_client", return_value=fake):
+    # Patch both the route module and the sync module so the real Strava client
+    # is never called (either path would cause a 401 that triggers rollback).
+    with patch.object(wr, "get_strava_client", return_value=fake), \
+         patch.object(sync_mod_local, "get_strava_client", return_value=fake):
         r = await client.get(
             f"/workouts/{planned.id}/strava-candidates", headers=seeded_auth_headers
         )
     assert r.status_code == 200
     body = r.json()
     ids = [c["completed_id"] for c in body]
-    assert str(near.id) in ids
-    assert str(far.id) not in ids
+    assert near_id in ids
+    assert far_id not in ids
 
 
 # ── C2 (candidates): sync failure must NOT poison the session ─────────────────

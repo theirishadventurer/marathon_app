@@ -504,12 +504,8 @@ async def strava_candidates(
 
     try:
         await StravaSyncService(db, athlete_id).sync()
-    except Exception:  # noqa: BLE001
-        # C2: expunge any pending (un-committed) objects so the candidate SELECT
-        # can auto-flush cleanly. We avoid a full rollback because that would
-        # expire all loaded ORM objects in the same session.
-        for obj in list(db.new):
-            db.expunge(obj)
+    except Exception:  # noqa: BLE001 — best-effort; keep the session clean for the candidate query
+        await db.rollback()
 
     linked_ids = select(Reconciliation.completed_id).where(
         Reconciliation.completed_id.is_not(None)

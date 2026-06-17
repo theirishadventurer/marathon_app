@@ -309,3 +309,40 @@ async def test_sync_refresh_failure_sets_last_error(db, athlete):
     assert state.last_error is not None
     assert "network error" in state.last_error
     assert state.last_error_at is not None
+
+
+# ── Round-2 QA: clamp distance_m / calories / avg_hr / max_hr ────────────────
+
+def test_map_activity_clamps_out_of_range_numerics():
+    act = {
+        **SAMPLE,
+        "distance": 99999999.0,       # exceeds Numeric(8,2) max 999999.99
+        "calories": 100000,            # exceeds SmallInteger max 32767
+        "average_heartrate": 70000.0,  # exceeds SmallInteger
+        "max_heartrate": 70000.0,
+        "has_heartrate": True,
+    }
+    cw = map_activity(uuid.uuid4(), act)
+    assert cw.distance_m is None
+    assert cw.calories is None
+    assert cw.avg_hr is None
+    assert cw.max_hr is None
+    # row is still constructible (no exception raised)
+
+
+async def test_sync_survives_out_of_range_activity(db, athlete):
+    await _connect(db, athlete)
+    bad = {**SAMPLE, "id": 424242, "distance": 99999999.0, "calories": 100000}
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[[bad], []])
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        report = await sync_mod.StravaSyncService(db, athlete.id).sync()
+    assert report.synced_activities == 1  # ingested with clamped Nones, no crash
+    cnt = (
+        await db.execute(
+            select(func.count())
+            .select_from(CompletedWorkout)
+            .where(CompletedWorkout.athlete_id == athlete.id)
+        )
+    ).scalar_one()
+    assert cnt == 1
