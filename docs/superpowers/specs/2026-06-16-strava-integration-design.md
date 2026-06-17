@@ -31,6 +31,16 @@ activity source.
    feature — high volume, not needed to display completed runs.
 5. **Garmin stays in place but dormant.** Not removed (still works from a
    non-datacenter IP if metrics are ever wanted). No cross-source dedup built in v1.
+6. **Matching is mark-complete-driven and explicit — NOT fuzzy auto-reconcile.**
+   Planned-vs-actual discrepancies (a run logged a day late, or a generic "Run"
+   logged against a planned tempo) make date+family auto-matching unreliable — the
+   current `reconcile()` would mark such a planned workout *skipped* and file the run
+   as a bonus. Instead: **Strava sync only ingests** activities into
+   `CompletedWorkout` (no auto-match, no auto-skip). Linkage happens when the athlete
+   taps **MARK DONE** on a planned workout and **picks the matching activity from a
+   short list** — the human resolves the discrepancy, and we link with full
+   confidence. The fuzzy `reconcile()` service is left untouched and stays out of the
+   Strava path.
 
 ## Module layout (small, single-purpose units)
 
@@ -38,13 +48,15 @@ activity source.
 app/services/strava/
   oauth.py    # build authorize URL; exchange code→tokens; refresh; deauthorize (pure-ish, unit-testable)
   client.py   # thin httpx.AsyncClient wrapper; get_strava_client() seam for mocking (mirrors get_gemini_client)
-  sync.py     # StravaSyncService: list activities → map → dedup → persist → reconcile
+  sync.py     # StravaSyncService: list activities → map → dedup → persist (ingest only, no reconcile)
 app/models/strava.py        # StravaAuthState ORM model
-app/schemas/strava.py       # StravaStatusOut, StravaConnectOut, StravaSyncReportOut
+app/schemas/strava.py       # StravaStatusOut, StravaConnectOut, StravaSyncReportOut, CandidateOut
 app/routes/strava.py        # connect / callback / sync / status / disconnect (all CORS-safe)
+app/routes/workouts.py      # + GET strava-candidates, POST link-completed (explicit linkage)
 app/lib/workout_family.py   # + family_for_strava_sport_type()
 alembic/versions/<rev>_strava_integration.py   # strava_auth_state table + CompletedWorkout columns
 mobile/src/api/hooks/useStrava.ts              # connect / status / sync / disconnect
+mobile/src/api/hooks/useStravaCandidates.ts    # candidates + link-completed (MARK DONE picker)
 mobile/src/screens/SettingsScreen.tsx          # + Strava card (mirrors Garmin card)
 ```
 
@@ -113,16 +125,40 @@ on-disk `tokens.json`, which needed a Railway volume mount).
    - `suffer_score` → `relative_effort`; `calories` → `calories`
    - `sport_type` → `activity_type`; `family_for_strava_sport_type(sport_type)` → `family`
    - full payload → `raw_summary_json`
-5. Flush new rows, then call `reconcile(db, athlete_id)` (matches completed→planned,
-   updates statuses). NOTE: the existing Garmin `/admin/sync` does **not** currently
-   call `reconcile()` (the service runs only in tests today) — Strava does it
-   correctly; wiring the Garmin path is a separate pre-existing follow-up, out of
-   scope here.
+5. Flush new rows. **Ingest only — do NOT call `reconcile()`.** No auto-matching and
+   no auto-skip; linkage is explicit (see "Matching & linkage" below). Ingested but
+   unlinked activities are simply available runs (e.g. for a Recent Runs strip and as
+   MARK DONE candidates).
 6. Update `last_successful_sync`; on failure record `last_error`/`last_error_at` and
    surface via the route as a CORS-safe 502.
 
-**Trigger:** manual "Sync now" (`POST /strava/sync`) + a client-side sync on app
-open/login. No server-side scheduler in v1.
+**Trigger:** manual "Sync now" (`POST /strava/sync`), a client-side sync on app
+open/login, and implicitly when fetching MARK DONE candidates. No server-side
+scheduler in v1.
+
+## Matching & linkage (mark-complete driven)
+
+Discrepancies between planned and actual are resolved by the athlete at MARK DONE,
+not by heuristics. Flow:
+
+1. Athlete taps **MARK DONE** on planned workout `X`.
+2. `GET /workouts/{X}/strava-candidates` triggers a Strava sync (ingest), then returns
+   a short list (≤5) of **unlinked** `CompletedWorkout`s (any source), ordered by
+   proximity to `X.scheduled_date` within a ±7-day window. "Unlinked" = no
+   `Reconciliation` row references the completed id.
+3. Mobile shows the list; the athlete taps the activity that matches, or chooses
+   **"none / log manually"** → existing `LogCompletedSheet` manual-entry fallback.
+4. `POST /workouts/{X}/link-completed` with the chosen `completed_id`:
+   - **Re-validate ownership** of both the planned workout and the completed workout
+     against `athlete_id` before mutating (untrusted client input — secure-coding rule).
+   - Reject if the completed workout is already linked.
+   - Create `Reconciliation(planned_id=X, completed_id=<chosen>, match_confidence=1.00)`
+     (athlete-confirmed link), set `X.status = done`, bust caches via
+     `invalidate_for_athlete`.
+
+This reuses the existing `CompletedWorkout` + `Reconciliation` tables; it is the
+Strava-aware sibling of today's manual `log-completed` path. The fuzzy `reconcile()`
+service is not invoked.
 
 ## API routes
 
@@ -137,15 +173,24 @@ All routes use route-level try/except converting upstream failures to
 | POST | `/strava/sync` | On-demand sync (`StravaSyncReportOut`) |
 | GET | `/strava/status` | Connected? last sync? last error? (`StravaStatusOut`) |
 | DELETE | `/strava/disconnect` | POST Strava `/oauth/deauthorize`, delete auth row |
+| GET | `/workouts/{id}/strava-candidates` | Sync, then return ≤5 unlinked completed workouts near the planned date (`CandidateOut[]`) |
+| POST | `/workouts/{id}/link-completed` | Link a chosen `completed_id` to this planned workout (confidence 1.00); ownership re-validated |
 
 ## Mobile UX
 
-A **"Strava" card** in `SettingsScreen`, mirroring the existing Garmin card:
+**Settings — a "Strava" card** mirroring the existing Garmin card:
 - "Connect Strava" → opens the authorize URL in an in-app browser.
 - After connect: shows last-sync time + a "Sync now" button.
 - "Disconnect" → revokes and clears.
 - New `useStrava` hook (connect / status / sync / disconnect) following existing
   hook patterns.
+
+**MARK DONE — Strava activity picker.** The existing MARK DONE flow gains a
+candidate-picker step before the manual `LogCompletedSheet`: on tap, fetch
+`/workouts/{id}/strava-candidates`, render the short list (date, type, distance,
+pace) nearest-first, with a "none / log manually" row that falls through to the
+current manual sheet. Selecting an activity calls `link-completed`. New hooks:
+`useStravaCandidates`, `useLinkCompleted`.
 
 ## Config / secrets (backend-only — never `EXPO_PUBLIC_*`)
 
@@ -167,7 +212,13 @@ Coverage:
 - activity → `CompletedWorkout` mapping (incl. `avg_pace_s_per_km` derivation and
   zero-speed guard, HR present/absent, cadence/watts/relative_effort).
 - dedup: an already-stored `strava_activity_id` is skipped.
-- `reconcile()` is invoked after ingest and matches a planned workout.
+- sync ingests **without** linking (no `Reconciliation` rows created, no planned
+  workout marked skipped/done).
+- candidates: returns ≤5 unlinked completed workouts ordered by date-proximity within
+  the ±7-day window; already-linked completed workouts are excluded.
+- `link-completed`: creates a confidence-1.00 `Reconciliation` and sets the planned
+  workout `done`; **rejects a foreign `completed_id`** (ownership re-validation) and a
+  **double-link** of an already-linked completed workout.
 - disconnect deletes the auth row.
 - route test: an upstream Strava failure returns a **CORS-safe 502**, missing config
   returns **503**.
@@ -184,10 +235,13 @@ posting activities *to* Strava, segments/kudos/comments, multi-account Strava.
 ## Done criteria
 
 - [ ] OAuth round-trip works end-to-end against a real Strava account
-- [ ] `POST /strava/sync` ingests new activities and maps them to `CompletedWorkout`
-- [ ] `reconcile()` runs after ingest; a synced run flips its matching planned workout
+- [ ] `POST /strava/sync` ingests new activities into `CompletedWorkout` without
+      creating any `Reconciliation` rows or changing planned statuses
+- [ ] MARK DONE shows a Strava candidate picker; selecting a run links it with
+      confidence 1.00 and sets the planned workout `done`; "log manually" still works
+- [ ] `link-completed` rejects a foreign or already-linked `completed_id`
 - [ ] Inline token refresh works without user intervention
 - [ ] Settings card: connect / sync / disconnect all function on the PWA
 - [ ] Missing/invalid config and upstream failures return CORS-safe 503/502
 - [ ] Full backend suite green in-container; mobile `tsc --noEmit` clean
-- [ ] Garmin path remains untouched and functional (Strava is additive)
+- [ ] Garmin path and the fuzzy `reconcile()` service remain untouched (Strava is additive)
