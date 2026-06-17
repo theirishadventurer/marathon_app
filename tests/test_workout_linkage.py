@@ -145,3 +145,48 @@ async def test_candidates_returns_nearest_unlinked(
     ids = [c["completed_id"] for c in body]
     assert str(near.id) in ids
     assert str(far.id) not in ids
+
+
+# ── C2 (candidates): sync failure must NOT poison the session ─────────────────
+
+async def test_candidates_survives_sync_failure(
+    seeded_db, seeded_auth_headers, client, monkeypatch
+):
+    """When the inline sync() raises, the session is rolled back and the candidate
+    query still returns 200 with already-present unlinked completed rows."""
+    monkeypatch.setattr(settings, "strava_client_id", "42")
+    monkeypatch.setattr(settings, "strava_client_secret", "s")
+    monkeypatch.setattr(settings, "strava_redirect_uri", "https://x.app/cb")
+
+    db = seeded_db
+    athlete_id = await _athlete_id(db)
+    planned = await _first_planned(db)
+
+    # Insert a completed row that should appear in candidates
+    cw = _completed(athlete_id, planned.scheduled_date, 9001)
+    db.add(cw)
+    # Connect strava so sync is attempted
+    db.add(
+        StravaAuthState(
+            athlete_id=athlete_id,
+            access_token="acc",
+            refresh_token="ref",
+            expires_at=datetime.now(UTC) + timedelta(hours=5),
+        )
+    )
+    await db.commit()
+
+    # Make get_activities raise so the inline sync fails
+    import app.routes.workouts as wr
+
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=RuntimeError("strava down"))
+    with patch.object(wr, "get_strava_client", return_value=fake):
+        r = await client.get(
+            f"/workouts/{planned.id}/strava-candidates", headers=seeded_auth_headers
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    ids = [c["completed_id"] for c in body]
+    assert str(cw.id) in ids  # already-ingested row is still returned

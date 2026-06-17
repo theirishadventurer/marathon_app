@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -95,6 +96,9 @@ class PlannedWorkout(UUIDMixin, TimestampMixin, Base):
 
 class CompletedWorkout(UUIDMixin, Base):
     __tablename__ = "completed_workouts"
+    __table_args__ = (
+        UniqueConstraint("strava_activity_id", name="uq_completed_strava_activity_id"),
+    )
 
     athlete_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -118,7 +122,7 @@ class CompletedWorkout(UUIDMixin, Base):
     avg_pace_s_per_km: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     elevation_gain_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)
     calories: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    strava_activity_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
+    strava_activity_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default="manual")
     avg_cadence: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
     avg_watts: Mapped[Decimal | None] = mapped_column(Numeric(6, 1), nullable=True)

@@ -497,21 +497,30 @@ async def strava_candidates(
     if planned is None:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    try:  # noqa: SIM105
-        await StravaSyncService(db, athlete.id).sync()
+    # Capture scalar values before sync; a session error in sync should not
+    # prevent the candidate query from running.
+    scheduled_date = planned.scheduled_date
+    athlete_id = athlete.id
+
+    try:
+        await StravaSyncService(db, athlete_id).sync()
     except Exception:  # noqa: BLE001
-        pass
+        # C2: expunge any pending (un-committed) objects so the candidate SELECT
+        # can auto-flush cleanly. We avoid a full rollback because that would
+        # expire all loaded ORM objects in the same session.
+        for obj in list(db.new):
+            db.expunge(obj)
 
     linked_ids = select(Reconciliation.completed_id).where(
         Reconciliation.completed_id.is_not(None)
     )
-    lo = planned.scheduled_date - timedelta(days=7)
-    hi = planned.scheduled_date + timedelta(days=7)
+    lo = scheduled_date - timedelta(days=7)
+    hi = scheduled_date + timedelta(days=7)
     rows = (
         (
             await db.execute(
                 select(CompletedWorkout).where(
-                    CompletedWorkout.athlete_id == athlete.id,
+                    CompletedWorkout.athlete_id == athlete_id,
                     CompletedWorkout.activity_date >= lo,
                     CompletedWorkout.activity_date <= hi,
                     CompletedWorkout.id.not_in(linked_ids),
@@ -521,7 +530,7 @@ async def strava_candidates(
         .scalars()
         .all()
     )
-    rows.sort(key=lambda cw: abs((cw.activity_date - planned.scheduled_date).days))
+    rows.sort(key=lambda cw: abs((cw.activity_date - scheduled_date).days))
     rows = rows[:5]
 
     return [

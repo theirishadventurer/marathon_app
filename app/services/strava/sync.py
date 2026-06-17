@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -16,6 +17,19 @@ from app.models.workout import CompletedWorkout
 from app.services.strava import oauth
 from app.services.strava.client import get_strava_client
 
+# Column limits (used for clamping to avoid overflow)
+_MAX_SMALLINT = 32767
+_MAX_CADENCE = Decimal("9999.9")
+_MAX_WATTS = Decimal("99999.9")
+_MAX_DISTANCE = Decimal("999999.99")  # Numeric(8,2)
+
+# Minimum plausible speed to compute pace (0.3 m/s ≈ 55 min/km — basically stationary)
+_MIN_SPEED_FOR_PACE = 0.3
+
+
+class StravaSyncError(Exception):
+    """Raised when the Strava sync cannot proceed (e.g. token refresh failure)."""
+
 
 def _parse_started_at(raw: str) -> datetime:
     # Strava ISO8601, may end in 'Z'
@@ -27,7 +41,11 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
     sport = act.get("sport_type") or act.get("type") or "Run"
 
     avg_speed = act.get("average_speed") or 0
-    avg_pace = round(1000 / avg_speed) if avg_speed and avg_speed > 0 else None
+    if avg_speed and avg_speed > _MIN_SPEED_FOR_PACE:
+        raw_pace = round(1000 / avg_speed)
+        avg_pace: int | None = raw_pace if raw_pace <= _MAX_SMALLINT else None
+    else:
+        avg_pace = None
 
     has_hr = act.get("has_heartrate")
     avg_hr = round(act["average_heartrate"]) if has_hr and act.get("average_heartrate") else None
@@ -36,6 +54,15 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
     def _num(key: str) -> Decimal | None:
         v = act.get(key)
         return Decimal(str(v)) if v is not None else None
+
+    raw_cadence = _num("average_cadence")
+    avg_cadence = raw_cadence if raw_cadence is None or raw_cadence <= _MAX_CADENCE else None
+
+    raw_watts = _num("average_watts")
+    avg_watts = raw_watts if raw_watts is None or raw_watts <= _MAX_WATTS else None
+
+    raw_effort = int(act["suffer_score"]) if act.get("suffer_score") is not None else None
+    relative_effort = raw_effort if raw_effort is None or raw_effort <= _MAX_SMALLINT else None
 
     return CompletedWorkout(
         athlete_id=athlete_id,
@@ -52,9 +79,9 @@ def map_activity(athlete_id: uuid.UUID, act: dict[str, Any]) -> CompletedWorkout
         avg_pace_s_per_km=avg_pace,
         elevation_gain_m=_num("total_elevation_gain"),
         calories=int(act["calories"]) if act.get("calories") is not None else None,
-        avg_cadence=_num("average_cadence"),
-        avg_watts=_num("average_watts"),
-        relative_effort=int(act["suffer_score"]) if act.get("suffer_score") is not None else None,
+        avg_cadence=avg_cadence,
+        avg_watts=avg_watts,
+        relative_effort=relative_effort,
         raw_summary_json=act,
     )
 
@@ -83,11 +110,17 @@ class StravaSyncService:
     async def _ensure_fresh(self, state: StravaAuthState, client) -> str:
         """Return a valid access token, refreshing inline if near expiry."""
         if oauth.needs_refresh(state.expires_at, datetime.now(UTC)):
-            resp = await client.refresh_token(
-                client_id=settings.strava_client_id,
-                client_secret=settings.strava_client_secret,
-                refresh_token=state.refresh_token,
-            )
+            try:
+                resp = await client.refresh_token(
+                    client_id=settings.strava_client_id,
+                    client_secret=settings.strava_client_secret,
+                    refresh_token=state.refresh_token,
+                )
+            except Exception as e:  # noqa: BLE001
+                state.last_error = str(e)[:500]
+                state.last_error_at = datetime.now(UTC)
+                await self.db.commit()
+                raise StravaSyncError(f"Token refresh failed: {e}") from e
             tokens = oauth.tokens_from_response(
                 {**resp, "athlete": {"id": state.athlete_strava_id}}
             )
@@ -113,7 +146,9 @@ class StravaSyncService:
         )
         after_epoch = int(after_dt.timestamp())
 
-        activities: list[dict] = []
+        # H1/H2: seen set persists across pages; commit after each page.
+        seen: set[int] = set()
+        committed_any_page = False
         page = 1
         while True:
             batch = await client.get_activities(
@@ -121,34 +156,60 @@ class StravaSyncService:
             )
             if not batch:
                 break
-            activities.extend(batch)
+
+            # Collect parseable ids for this page to check existing DB rows
+            page_ids = []
+            for a in batch:
+                with contextlib.suppress(KeyError, TypeError, ValueError):
+                    page_ids.append(int(a["id"]))
+
+            if page_ids:
+                existing = {
+                    row[0]
+                    for row in (
+                        await self.db.execute(
+                            select(CompletedWorkout.strava_activity_id).where(
+                                CompletedWorkout.strava_activity_id.in_(page_ids)
+                            )
+                        )
+                    ).all()
+                }
+                # Seed seen with DB-existing ids so H1 dedup works across pages too
+                seen.update(existing)
+
+            for act in batch:
+                try:
+                    act_id = int(act["id"])
+                except (KeyError, TypeError, ValueError) as e:
+                    report.errors.append(f"Activity missing id: {e}")
+                    continue
+
+                # H1: skip duplicates (both within-batch and already-in-DB)
+                if act_id in seen:
+                    continue
+
+                try:
+                    cw = map_activity(self.athlete_id, act)  # C1: may raise
+                except Exception as e:  # noqa: BLE001
+                    report.errors.append(f"Activity {act_id} skipped: {e}")
+                    continue
+
+                self.db.add(cw)
+                seen.add(act_id)
+                report.synced_activities += 1
+
+            # H2: commit this page's rows before fetching next; advance sync cursor
+            state.last_successful_sync = datetime.now(UTC)
+            await self.db.commit()
+            committed_any_page = True
+
             if len(batch) < 100:
                 break
             page += 1
 
-        if not activities:
+        # No non-empty page was fetched: still advance the sync cursor
+        if not committed_any_page:
             state.last_successful_sync = datetime.now(UTC)
             await self.db.commit()
-            return report
 
-        ids = [int(a["id"]) for a in activities]
-        existing = {
-            row[0]
-            for row in (
-                await self.db.execute(
-                    select(CompletedWorkout.strava_activity_id).where(
-                        CompletedWorkout.strava_activity_id.in_(ids)
-                    )
-                )
-            ).all()
-        }
-
-        for act in activities:
-            if int(act["id"]) in existing:
-                continue
-            self.db.add(map_activity(self.athlete_id, act))
-            report.synced_activities += 1
-
-        state.last_successful_sync = datetime.now(UTC)
-        await self.db.commit()
         return report

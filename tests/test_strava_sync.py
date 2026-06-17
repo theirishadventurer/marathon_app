@@ -10,7 +10,7 @@ from app.models.strava import StravaAuthState
 from app.models.workout import CompletedWorkout, WorkoutFamily
 from app.services.strava import sync as sync_mod
 from app.services.strava.client import StravaClient, get_strava_client
-from app.services.strava.sync import map_activity
+from app.services.strava.sync import StravaSyncError, map_activity
 
 
 async def test_completed_workout_accepts_strava_columns(db, athlete):
@@ -196,3 +196,116 @@ async def test_sync_paginates_multiple_pages(db, athlete):
         )
     ).scalar_one()
     assert count == 105
+
+
+# ── C1: malformed activity must not abort the whole batch ──────────────────────
+
+async def test_sync_skips_malformed_activity_keeps_valid(db, athlete):
+    """A missing start_date_local on one activity must not discard the valid one."""
+    await _connect(db, athlete)
+    bad = {"id": 999}  # missing start_date_local → map_activity raises KeyError
+    batch = [SAMPLE, bad]
+
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[batch, []])
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        svc = sync_mod.StravaSyncService(db, athlete.id)
+        report = await svc.sync()
+
+    assert report.synced_activities == 1
+    assert len(report.errors) >= 1  # malformed activity recorded as error
+    # last_successful_sync was advanced
+    state = (
+        await db.execute(
+            select(StravaAuthState).where(StravaAuthState.athlete_id == athlete.id)
+        )
+    ).scalar_one()
+    assert state.last_successful_sync is not None
+
+
+# ── H1: duplicate id within one batch must not crash ──────────────────────────
+
+async def test_sync_dedups_within_batch(db, athlete):
+    """Same activity id twice in one fetched page → only 1 row inserted, no crash."""
+    await _connect(db, athlete)
+    batch = [SAMPLE, SAMPLE]  # identical id twice
+
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[batch, []])
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        report = await sync_mod.StravaSyncService(db, athlete.id).sync()
+
+    assert report.synced_activities == 1
+    count = (
+        await db.execute(
+            select(func.count()).select_from(CompletedWorkout).where(
+                CompletedWorkout.athlete_id == athlete.id
+            )
+        )
+    ).scalar_one()
+    assert count == 1
+
+
+# ── M1: near-zero speed must not overflow SmallInteger pace ───────────────────
+
+async def test_sync_clamps_extreme_pace(db, athlete):
+    """average_speed=0.01 would give pace=100 000 s/km → overflow. Must yield None."""
+    await _connect(db, athlete)
+    slow_act = {**SAMPLE, "id": 77777, "average_speed": 0.01}
+    batch = [slow_act]
+
+    fake = MagicMock()
+    fake.get_activities = AsyncMock(side_effect=[batch, []])
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        report = await sync_mod.StravaSyncService(db, athlete.id).sync()
+
+    assert report.synced_activities == 1
+    cw = (
+        await db.execute(
+            select(CompletedWorkout).where(CompletedWorkout.strava_activity_id == 77777)
+        )
+    ).scalar_one()
+    assert cw.avg_pace_s_per_km is None  # clamped, not crashed
+
+
+# ── C2/M2: refresh failure must set last_error and raise StravaSyncError ──────
+
+async def test_sync_refresh_failure_sets_last_error(db, athlete):
+    """When refresh_token() raises, last_error is persisted and StravaSyncError raised."""
+    db.add(
+        StravaAuthState(
+            athlete_id=athlete.id,
+            access_token="old",
+            refresh_token="oldref",
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),  # expired → needs refresh
+            athlete_strava_id=1,
+            scope="activity:read_all",
+        )
+    )
+    await db.commit()
+
+    fake = MagicMock()
+    fake.refresh_token = AsyncMock(side_effect=RuntimeError("network error"))
+
+    with patch.object(sync_mod, "get_strava_client", return_value=fake):
+        svc = sync_mod.StravaSyncService(db, athlete.id)
+        raised = False
+        try:
+            await svc.sync()
+        except StravaSyncError:
+            raised = True
+
+    assert raised, "StravaSyncError should have been raised"
+
+    # Reload state in a fresh query — session must still be usable
+    state = (
+        await db.execute(
+            select(StravaAuthState).where(StravaAuthState.athlete_id == athlete.id)
+        )
+    ).scalar_one()
+    assert state.last_error is not None
+    assert "network error" in state.last_error
+    assert state.last_error_at is not None
