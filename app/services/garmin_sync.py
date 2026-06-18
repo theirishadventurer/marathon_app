@@ -41,6 +41,65 @@ class SyncReport:
         }
 
 
+def map_activity(act: dict, athlete_id: str) -> CompletedWorkout | None:
+    """Map one Garmin activity dict to an unsaved CompletedWorkout.
+
+    Returns None (skip) on malformed input — mirrors the per-activity-skip
+    hardening used on the Strava path. Caller is responsible for dedup + add.
+    """
+    gid = act.get("activityId")
+    if gid is None:
+        return None
+    started = act.get("startTimeLocal") or act.get("startTimeGMT")
+    if not started:
+        return None
+    activity_type = act.get("activityType", {}).get("typeKey", "other")
+    try:
+        activity_date = date.fromisoformat(started[:10])
+        started_at = datetime.fromisoformat(started)
+    except ValueError:
+        return None
+    return CompletedWorkout(
+        athlete_id=athlete_id,
+        garmin_activity_id=gid,
+        activity_date=activity_date,
+        started_at=started_at,
+        activity_type=activity_type,
+        family=family_for_garmin_activity_type(activity_type),
+        duration_s=int(act.get("duration", 0)),
+        distance_m=Decimal(str(act["distance"])) if act.get("distance") else None,
+        avg_hr=act.get("averageHR"),
+        max_hr=act.get("maxHR"),
+        avg_pace_s_per_km=None,
+        elevation_gain_m=(
+            Decimal(str(act["elevationGain"])) if act.get("elevationGain") else None
+        ),
+        calories=act.get("calories"),
+        source="garmin",
+        raw_summary_json=act,
+    )
+
+
+def map_metric(day: dict, athlete_id: str) -> DailyMetric | None:
+    """Map one Garmin daily-stats dict to an unsaved DailyMetric, or None."""
+    cal_date_str = day.get("calendarDate")
+    if not cal_date_str:
+        return None
+    return DailyMetric(
+        athlete_id=athlete_id,
+        metric_date=date.fromisoformat(cal_date_str),
+        sleep_score=day.get("sleepScore"),
+        sleep_duration_s=day.get("sleepDurationSeconds"),
+        hrv_overnight_ms=(Decimal(str(day["hrvOvernight"])) if day.get("hrvOvernight") else None),
+        resting_hr=day.get("restingHeartRate"),
+        body_battery_high=day.get("bodyBatteryHighestValue"),
+        body_battery_low=day.get("bodyBatteryLowestValue"),
+        training_readiness=day.get("trainingReadiness"),
+        training_status=day.get("trainingStatus"),
+        raw_json=day,
+    )
+
+
 class GarminSyncService:
     def __init__(self, db: AsyncSession, athlete_id: str) -> None:
         self.db = db
@@ -167,28 +226,9 @@ class GarminSyncService:
             gid = act["activityId"]
             if gid in existing_ids:
                 continue
-
-            activity_type = act.get("activityType", {}).get("typeKey", "other")
-            started = act.get("startTimeLocal") or act.get("startTimeGMT", "")
-
-            workout = CompletedWorkout(
-                athlete_id=self.athlete_id,
-                garmin_activity_id=gid,
-                activity_date=date.fromisoformat(started[:10]) if started else since_date,
-                started_at=datetime.fromisoformat(started) if started else datetime.now(UTC),
-                activity_type=activity_type,
-                family=family_for_garmin_activity_type(activity_type),
-                duration_s=int(act.get("duration", 0)),
-                distance_m=Decimal(str(act["distance"])) if act.get("distance") else None,
-                avg_hr=act.get("averageHR"),
-                max_hr=act.get("maxHR"),
-                avg_pace_s_per_km=None,
-                elevation_gain_m=(
-                    Decimal(str(act["elevationGain"])) if act.get("elevationGain") else None
-                ),
-                calories=act.get("calories"),
-                raw_summary_json=act,
-            )
+            workout = map_activity(act, self.athlete_id)
+            if workout is None:
+                continue
             self.db.add(workout)
             new_workouts.append(workout)
 
@@ -233,28 +273,9 @@ class GarminSyncService:
 
         new_metrics: list[DailyMetric] = []
         for day in stats:
-            cal_date_str = day.get("calendarDate")
-            if not cal_date_str:
+            metric = map_metric(day, self.athlete_id)
+            if metric is None or metric.metric_date in existing_dates:
                 continue
-            metric_date = date.fromisoformat(cal_date_str)
-            if metric_date in existing_dates:
-                continue
-
-            metric = DailyMetric(
-                athlete_id=self.athlete_id,
-                metric_date=metric_date,
-                sleep_score=day.get("sleepScore"),
-                sleep_duration_s=day.get("sleepDurationSeconds"),
-                hrv_overnight_ms=(
-                    Decimal(str(day["hrvOvernight"])) if day.get("hrvOvernight") else None
-                ),
-                resting_hr=day.get("restingHeartRate"),
-                body_battery_high=day.get("bodyBatteryHighestValue"),
-                body_battery_low=day.get("bodyBatteryLowestValue"),
-                training_readiness=day.get("trainingReadiness"),
-                training_status=day.get("trainingStatus"),
-                raw_json=day,
-            )
             self.db.add(metric)
             new_metrics.append(metric)
 
