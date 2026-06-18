@@ -34,8 +34,9 @@ class TestSecretKeyFailClosed:
 
     def test_prod_with_strong_secret_ok(self):
         # 64 hex chars (== secrets.token_hex(32)) — should construct cleanly.
+        # Also supply garmin_ingest_token so the new prod fail-closed check passes.
         strong = "a" * 64
-        s = Settings(app_env="production", secret_key=strong)
+        s = Settings(app_env="production", secret_key=strong, garmin_ingest_token="tok")
         assert s.is_production is True
         assert s.secret_key == strong
 
@@ -75,3 +76,24 @@ def test_strava_config_defaults_empty():
     assert s.strava_client_id == ""
     assert s.strava_client_secret == ""
     assert s.strava_redirect_uri == ""
+
+
+def test_production_requires_garmin_ingest_token():
+    import pytest
+    from app.config import Settings
+    with pytest.raises(RuntimeError, match="GARMIN_INGEST_TOKEN"):
+        Settings(
+            app_env="production",
+            secret_key="x" * 40,
+            garmin_ingest_token="",
+        )
+
+
+def test_production_allows_garmin_ingest_token_set():
+    from app.config import Settings
+    s = Settings(
+        app_env="production",
+        secret_key="x" * 40,
+        garmin_ingest_token="a-real-token",
+    )
+    assert s.garmin_ingest_token == "a-real-token"
