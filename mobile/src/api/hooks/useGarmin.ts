@@ -33,3 +33,15 @@ export function useManualSync() {
     },
   });
 }
+
+export function useRequestSync() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await api.post('/garmin/request-sync');
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['garmin'] });
+    },
+  });
+}

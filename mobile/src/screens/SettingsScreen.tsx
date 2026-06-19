@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, Text, TextInput, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isAxiosError } from 'axios';
 
-import { useGarminReauth, useGarminStatus, useManualSync } from '@/api/hooks/useGarmin';
+import { useGarminReauth, useGarminStatus, useRequestSync } from '@/api/hooks/useGarmin';
 import { usePlanCurrent } from '@/api/hooks/usePlan';
 import { useAuth } from '@/auth/AuthContext';
 import { BrandBanner } from '@/components/BrandBanner';
@@ -119,7 +119,7 @@ export function SettingsScreen() {
   const { logout } = useAuth();
   const status = useGarminStatus();
   const plan = usePlanCurrent();
-  const sync = useManualSync();
+  const sync = useRequestSync();
   const [showReauth, setShowReauth] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const startDateSheetRef = useRef<BottomSheet>(null);
@@ -130,14 +130,12 @@ export function SettingsScreen() {
   const onSync = async () => {
     setSyncMsg(null);
     try {
-      const report = await sync.mutateAsync();
-      setSyncMsg(
-        `Synced ${report.synced_activities} activities, ${report.synced_metrics} metrics.${
-          report.errors.length > 0 ? ` ${report.errors.length} error(s).` : ''
-        }`,
-      );
+      await sync.mutateAsync();
+      setSyncMsg('Sync requested — your laptop agent will pick it up shortly.');
     } catch (e) {
-      setSyncMsg(isAxiosError(e) ? (e.response?.data?.detail ?? 'Sync failed.') : 'Sync failed.');
+      setSyncMsg(
+        isAxiosError(e) ? (e.response?.data?.detail ?? 'Request failed.') : 'Request failed.',
+      );
     }
   };
 
@@ -225,7 +223,7 @@ export function SettingsScreen() {
                   <View style={{ flex: 1 }}>
                     <RetroButton
                       tone="default"
-                      label={sync.isPending ? 'Syncing…' : 'Sync now'}
+                      label={sync.isPending ? 'Requesting…' : 'Sync now'}
                       onPress={() => { void onSync(); }}
                       disabled={sync.isPending}
                     />
