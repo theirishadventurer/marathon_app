@@ -12,6 +12,7 @@ from app.models.workout import CompletedWorkout
 from app.schemas.garmin import (
     GarminIngestRequest,
     GarminIngestResponse,
+    GarminPollOut,
     GarminReauthRequest,
     GarminStatusOut,
 )
@@ -120,7 +121,7 @@ async def ingest(
         )
     ).scalar_one_or_none()
     if state is not None:
-        state.last_successful_sync = datetime.now(UTC)
+        state.last_successful_sync = datetime.now(UTC).replace(tzinfo=None)
         state.sync_requested_at = None
 
     await db.commit()
@@ -129,3 +130,40 @@ async def ingest(
         synced_metrics=synced_metrics,
         skipped=skipped,
     )
+
+
+@router.get("/poll", response_model=GarminPollOut)
+async def poll(
+    _: None = Depends(require_ingest_token),
+    athlete: Athlete = Depends(get_ingest_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    state = (
+        await db.execute(
+            select(GarminAuthState).where(GarminAuthState.athlete_id == athlete.id)
+        )
+    ).scalar_one_or_none()
+    requested = state is not None and state.sync_requested_at is not None
+    return GarminPollOut(sync_requested=requested)
+
+
+@router.post("/request-sync")
+async def request_sync(
+    athlete: Athlete = Depends(get_current_athlete),
+    db: AsyncSession = Depends(get_db),
+):
+    state = (
+        await db.execute(
+            select(GarminAuthState).where(GarminAuthState.athlete_id == athlete.id)
+        )
+    ).scalar_one_or_none()
+    if state is None:
+        state = GarminAuthState(
+            athlete_id=athlete.id,
+            token_dir_path="",  # residential agent owns tokens; server stores none
+            needs_reauth=False,
+        )
+        db.add(state)
+    state.sync_requested_at = datetime.now(UTC)
+    await db.commit()
+    return {"ok": True}

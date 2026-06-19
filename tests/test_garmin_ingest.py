@@ -55,3 +55,24 @@ async def test_ingest_skips_malformed_activity(client, ingest_configured):
     assert r.status_code == 200
     assert r.json()["synced_activities"] == 0
     assert r.json()["skipped"] == 1
+
+
+async def test_request_sync_sets_flag_and_poll_reflects_it(
+    client, auth_headers, ingest_configured
+):
+    hdr = {"X-Ingest-Token": "test-ingest-token"}
+    # initially not requested
+    r0 = await client.get("/garmin/poll", headers=hdr)
+    assert r0.status_code == 200 and r0.json()["sync_requested"] is False
+    # PWA requests a sync (athlete JWT)
+    rr = await client.post("/garmin/request-sync", headers=auth_headers)
+    assert rr.status_code == 200
+    # poll now true
+    r1 = await client.get("/garmin/poll", headers=hdr)
+    assert r1.json()["sync_requested"] is True
+    # ingest clears it
+    await client.post(
+        "/garmin/ingest", json={"activities": [], "metrics": []}, headers=hdr
+    )
+    r2 = await client.get("/garmin/poll", headers=hdr)
+    assert r2.json()["sync_requested"] is False
