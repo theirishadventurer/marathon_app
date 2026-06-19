@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GarminReauthRequest(BaseModel):
@@ -22,8 +22,8 @@ class SyncReportOut(BaseModel):
 
 
 class GarminIngestRequest(BaseModel):
-    activities: list[dict] = []
-    metrics: list[dict] = []
+    activities: list[dict] = Field(default_factory=list, max_length=2000)
+    metrics: list[dict] = Field(default_factory=list, max_length=2000)
 
 
 class GarminIngestResponse(BaseModel):

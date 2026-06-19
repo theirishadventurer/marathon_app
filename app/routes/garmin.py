@@ -1,7 +1,9 @@
-from datetime import UTC, datetime
+import contextlib
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_current_athlete, get_db, get_ingest_athlete, require_ingest_token
@@ -72,8 +74,10 @@ async def ingest(
     aid = str(athlete.id)
     skipped = 0
 
-    # Activities: dedup vs DB + within-batch
-    incoming_ids = [a.get("activityId") for a in body.activities if a.get("activityId")]
+    # Activities: dedup vs DB + within-batch (FIX M3: guard is not None, not truthy)
+    incoming_ids = [
+        a.get("activityId") for a in body.activities if a.get("activityId") is not None
+    ]
     existing = set()
     if incoming_ids:
         rows = await db.execute(
@@ -95,36 +99,76 @@ async def ingest(
         db.add(w)
         synced_activities += 1
 
-    # Metrics: dedup by (athlete, date)
+    # Metrics: merge non-null fields into existing rows, insert new ones (FIX I2)
+    _MERGE_FIELDS = (
+        "sleep_score",
+        "sleep_duration_s",
+        "hrv_overnight_ms",
+        "resting_hr",
+        "body_battery_high",
+        "body_battery_low",
+        "training_readiness",
+        "training_status",
+    )
     synced_metrics = 0
     if body.metrics:
-        rows = await db.execute(
-            select(DailyMetric.metric_date).where(DailyMetric.athlete_id == athlete.id)
-        )
-        existing_dates = {r[0] for r in rows.all()}
-        seen_dates = set()
+        incoming_dates = []
+        for day in body.metrics:
+            cal = day.get("calendarDate")
+            if cal:
+                with contextlib.suppress(ValueError):
+                    incoming_dates.append(date.fromisoformat(cal))
+        existing_rows: dict = {}
+        if incoming_dates:
+            rows = await db.execute(
+                select(DailyMetric).where(
+                    DailyMetric.athlete_id == athlete.id,
+                    DailyMetric.metric_date.in_(incoming_dates),
+                )
+            )
+            existing_rows = {r.metric_date: r for r in rows.scalars().all()}
         for day in body.metrics:
             m = map_metric(day, aid)
             if m is None:
                 skipped += 1
                 continue
-            if m.metric_date in existing_dates or m.metric_date in seen_dates:
-                continue
-            seen_dates.add(m.metric_date)
-            db.add(m)
-            synced_metrics += 1
+            if m.metric_date in existing_rows:
+                # Merge non-null fields onto the existing row
+                existing_row = existing_rows[m.metric_date]
+                for field in _MERGE_FIELDS:
+                    val = getattr(m, field)
+                    if val is not None:
+                        setattr(existing_row, field, val)
+                existing_row.raw_json = m.raw_json
+                synced_metrics += 1
+            else:
+                db.add(m)
+                existing_rows[m.metric_date] = m
+                synced_metrics += 1
 
-    # Clear the on-demand flag + stamp last sync
+    # Upsert GarminAuthState + stamp last sync (FIX M4: create state if absent)
     state = (
         await db.execute(
             select(GarminAuthState).where(GarminAuthState.athlete_id == athlete.id)
         )
     ).scalar_one_or_none()
-    if state is not None:
-        state.last_successful_sync = datetime.now(UTC).replace(tzinfo=None)
-        state.sync_requested_at = None
+    if state is None:
+        state = GarminAuthState(
+            athlete_id=athlete.id,
+            token_dir_path="",
+            needs_reauth=False,
+        )
+        db.add(state)
+    state.last_successful_sync = datetime.now(UTC).replace(tzinfo=None)
+    state.sync_requested_at = None
 
-    await db.commit()
+    # FIX I1: wrap commit — concurrent ingest may race on the unique constraint
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Concurrent ingest conflict; retry") from exc
+
     return GarminIngestResponse(
         synced_activities=synced_activities,
         synced_metrics=synced_metrics,
