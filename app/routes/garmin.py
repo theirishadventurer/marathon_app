@@ -1,4 +1,3 @@
-import contextlib
 from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -111,40 +110,40 @@ async def ingest(
         "training_status",
     )
     synced_metrics = 0
-    if body.metrics:
-        incoming_dates = []
-        for day in body.metrics:
-            cal = day.get("calendarDate")
-            if cal:
-                with contextlib.suppress(ValueError):
-                    incoming_dates.append(date.fromisoformat(cal))
-        existing_rows: dict = {}
-        if incoming_dates:
-            rows = await db.execute(
-                select(DailyMetric).where(
-                    DailyMetric.athlete_id == athlete.id,
-                    DailyMetric.metric_date.in_(incoming_dates),
-                )
+    # Map all metrics once (map_metric is the single source of truth for dates)
+    mapped_metrics: list[DailyMetric] = []
+    for day in body.metrics:
+        m = map_metric(day, aid)
+        if m is None:
+            skipped += 1
+            continue
+        mapped_metrics.append(m)
+
+    existing_rows: dict[date, DailyMetric] = {}
+    incoming_dates = {m.metric_date for m in mapped_metrics}
+    if incoming_dates:
+        rows = await db.execute(
+            select(DailyMetric).where(
+                DailyMetric.athlete_id == athlete.id,
+                DailyMetric.metric_date.in_(incoming_dates),
             )
-            existing_rows = {r.metric_date: r for r in rows.scalars().all()}
-        for day in body.metrics:
-            m = map_metric(day, aid)
-            if m is None:
-                skipped += 1
-                continue
-            if m.metric_date in existing_rows:
-                # Merge non-null fields onto the existing row
-                existing_row = existing_rows[m.metric_date]
-                for field in _MERGE_FIELDS:
-                    val = getattr(m, field)
-                    if val is not None:
-                        setattr(existing_row, field, val)
-                existing_row.raw_json = m.raw_json
-                synced_metrics += 1
-            else:
-                db.add(m)
-                existing_rows[m.metric_date] = m
-                synced_metrics += 1
+        )
+        existing_rows = {r.metric_date: r for r in rows.scalars().all()}
+
+    for m in mapped_metrics:
+        target = existing_rows.get(m.metric_date)
+        if target is not None and target is not m:
+            # Merge non-null fields onto the existing row (DB row or earlier same-date item)
+            for field in _MERGE_FIELDS:
+                val = getattr(m, field)
+                if val is not None:
+                    setattr(target, field, val)
+            target.raw_json = m.raw_json
+            synced_metrics += 1
+        else:
+            db.add(m)
+            existing_rows[m.metric_date] = m
+            synced_metrics += 1
 
     # Upsert GarminAuthState + stamp last sync (FIX M4: create state if absent)
     state = (

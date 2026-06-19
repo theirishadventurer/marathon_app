@@ -52,8 +52,8 @@ async def test_ingest_creates_and_dedups(client, db, ingest_configured):
     assert r2.status_code == 200
     assert r2.json()["skipped"] == 0
     assert r2.json()["synced_activities"] == 0  # deduped
-    # Metrics merge means second POST still counts as 1 synced (merge path)
-    # but DB must have exactly ONE CompletedWorkout and ONE DailyMetric
+    assert r2.json()["synced_metrics"] == 1  # merge path counts as synced
+    # DB must have exactly ONE CompletedWorkout and ONE DailyMetric
     workout_count = (await db.execute(select(func.count()).select_from(CompletedWorkout))).scalar()
     metric_count = (await db.execute(select(func.count()).select_from(DailyMetric))).scalar()
     assert workout_count == 1
@@ -154,4 +154,4 @@ async def test_ingest_metric_backfills_late_fields(client, db, ingest_configured
     stored = result.scalar_one()
     assert stored.resting_hr == 48
     assert stored.sleep_score == 82
-    assert stored.hrv_overnight_ms is not None
+    assert stored.hrv_overnight_ms == Decimal("55")
