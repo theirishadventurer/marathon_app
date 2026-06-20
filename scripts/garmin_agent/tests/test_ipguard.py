@@ -1,5 +1,3 @@
-import types
-
 import pytest
 
 from garmin_agent import ipguard
