@@ -79,6 +79,9 @@ async def build_plan_full(db: AsyncSession, athlete_id: UUID) -> PlanFullOut:
                 .filter(PlannedWorkout.status == WorkoutStatus.moved)
                 .label("moved_count"),
                 func.coalesce(func.sum(PlannedWorkout.distance_mi), 0).label("planned_mi"),
+                func.max(PlannedWorkout.distance_mi)
+                .filter(PlannedWorkout.type == WorkoutType.long)
+                .label("long_run_mi"),
                 func.min(PlannedWorkout.scheduled_date).label("week_start"),
                 func.max(PlannedWorkout.scheduled_date).label("week_end"),
                 func.bool_or(PlannedWorkout.type == WorkoutType.race).label("has_race"),
@@ -148,6 +151,9 @@ async def build_plan_full(db: AsyncSession, athlete_id: UUID) -> PlanFullOut:
                     moved_count=r.moved_count,
                     planned_mi=planned_mi,
                     actual_mi=actual_mi,
+                    long_run_mi=(
+                        Decimal(str(r.long_run_mi)) if r.long_run_mi is not None else None
+                    ),
                     is_cutback=is_cutback,
                     is_peak=is_peak,
                     has_race=bool(r.has_race),

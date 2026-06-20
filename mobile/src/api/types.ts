@@ -244,6 +244,7 @@ export interface WeekRollup {
   moved_count: number;
   planned_mi: string;   // Decimal serialized as string
   actual_mi: string;
+  long_run_mi: string | null;   // longest planned long-run that week (mi), or null
   is_cutback: boolean;
   is_peak: boolean;
   has_race: boolean;

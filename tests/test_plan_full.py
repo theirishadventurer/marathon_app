@@ -19,6 +19,7 @@ def test_week_rollup_schema_round_trip():
         moved_count=0,
         planned_mi=Decimal("18.0"),
         actual_mi=Decimal("18.4"),
+        long_run_mi=Decimal("12.0"),
         is_cutback=False,
         is_peak=False,
         has_race=False,
@@ -27,6 +28,28 @@ def test_week_rollup_schema_round_trip():
     dumped = rollup.model_dump()
     assert dumped["status"] == "done"
     assert dumped["planned_mi"] == Decimal("18.0")
+    assert dumped["long_run_mi"] == Decimal("12.0")
+
+
+def test_week_rollup_long_run_defaults_none():
+    from app.schemas.plan import WeekRollup
+
+    rollup = WeekRollup(
+        week_number=1,
+        week_start=date(2026, 4, 13),
+        week_end=date(2026, 4, 19),
+        planned_count=3,
+        done_count=0,
+        skipped_count=0,
+        moved_count=0,
+        planned_mi=Decimal("9.0"),
+        actual_mi=Decimal("0.0"),
+        is_cutback=False,
+        is_peak=False,
+        has_race=False,
+        status="upcoming",
+    )
+    assert rollup.long_run_mi is None  # optional — a week with no long run
 
 
 def test_plan_full_out_schema_round_trip():
@@ -123,6 +146,9 @@ async def test_build_plan_full_marks_peak_and_race(seeded_db):
     assert len(peak_weeks) == 1
     assert peak_weeks[0].week_number == 20
     assert len(race_weeks) >= 1
+    # The peak week's long run is the biggest of the cycle — must be populated.
+    assert peak_weeks[0].long_run_mi is not None
+    assert peak_weeks[0].long_run_mi > 0
 
 
 @pytest.mark.asyncio
@@ -139,6 +165,7 @@ async def test_plan_full_endpoint_happy_path(client, seeded_auth_headers):
     week_one = p1["weeks"][0]
     assert "planned_mi" in week_one
     assert "actual_mi" in week_one
+    assert "long_run_mi" in week_one
     assert week_one["status"] in ("done", "partial", "current", "upcoming", "skipped")
 
 

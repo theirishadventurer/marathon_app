@@ -43,6 +43,7 @@ export function WeekTile({ week, onPress }: Props) {
   const showCutbackBorder = week.is_cutback && !isUpcoming;
   const tag = TAG_BY_STATUS[week.status];
   const titleInk = isUpcoming ? colors.inkDim : colors.ink;
+  const longRun = week.long_run_mi != null ? Math.round(parseFloat(week.long_run_mi)) : null;
 
   return (
     <Pressable
@@ -99,6 +100,9 @@ export function WeekTile({ week, onPress }: Props) {
         fontFamily: fonts.mono, fontSize: 11, color: isUpcoming ? colors.inkDim : colors.ink, marginTop: 3,
       }}>
         {formatMileageGlyph(week)}
+        {longRun != null && longRun > 0 && !week.has_race && (
+          <Text style={{ color: colors.inkDim }}>{`   ·  LR ${longRun}mi`}</Text>
+        )}
       </Text>
     </Pressable>
   );

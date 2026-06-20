@@ -92,6 +92,7 @@ class WeekRollup(BaseModel):
     moved_count: int
     planned_mi: Decimal
     actual_mi: Decimal
+    long_run_mi: Decimal | None = None
     is_cutback: bool
     is_peak: bool
     has_race: bool
