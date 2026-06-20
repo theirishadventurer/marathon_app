@@ -16,3 +16,5 @@ docs/session-logs/.last-seen-sha
 scripts/garmin_agent/.env
 scripts/garmin_agent/.venv/
 scripts/garmin_agent/**/__pycache__/
+scripts/garmin_agent/agent.log
+scripts/garmin_agent/agent.log.*
