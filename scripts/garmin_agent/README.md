@@ -40,7 +40,7 @@ curl -s -H "X-Ingest-Token: <your-token>" \
 Expected response: `{"sync_requested": false}`
 
 A `503` means the env var is not set (or the deploy did not finish).
-A `403` means the token does not match.
+A `401` means the token does not match.
 
 ---
 
@@ -194,8 +194,10 @@ INFO egress IP <your-home-ip> OK (residential)
 INFO ingest ok: +N activities, +M metrics, ...
 ```
 
-The backend's `sync_requested` flag is automatically cleared after the agent
-reads it.
+The backend's `sync_requested` flag is cleared only after a **successful
+ingest** (not when the agent polls). If a requested sync then fails — e.g. the
+token is rejected or the egress IP is a datacenter/VPN exit — the flag stays
+set and the agent will retry it on every poll until an ingest succeeds.
 
 ---
 
