@@ -40,7 +40,7 @@
 
 **Follow-on (same session, shipped to prod):** mobile **"Link a run →"** UI on `WorkoutDetailScreen` — picks a nearby synced/completed activity (source-agnostic) and links it to a planned workout via the already-live `strava-candidates` + `link-completed` endpoints (`LinkRunSheet` + `useLinkFlow`, mirrors the log-completed flow). Closed the gap where synced Garmin runs couldn't be attached to planned workouts. tsc clean; live-confirmed linking works.
 
-**Remaining (user-side, non-blocking):** scheduled `--watch` task is registered but uses `pythonw.exe`, which NordVPN's split-tunnel doesn't yet bypass (add `…\.venv\Scripts\pythonw.exe` + `C:\Python313\pythonw.exe`, or switch the task to the already-tunneled `python.exe`). Manual `--watch` covers syncs meanwhile.
+**Hands-off run COMPLETE:** Windows Task Scheduler task `MarathonGarminAgent` runs `pythonw -m garmin_agent.agent --watch` (no console window) at logon, every 6h, and on PWA Sync-now. NordVPN split-tunnel bypasses both `.venv\Scripts\pythonw.exe` + `C:\Python313\pythonw.exe`; verified `pythonw` egress residential (`173.59.2.225`, datacenter=False) with VPN connected. Fully automated, residential-IP Garmin sync in prod.
 
 **Plan:** `docs/superpowers/plans/2026-06-17-residential-garmin-agent.md`.
 
