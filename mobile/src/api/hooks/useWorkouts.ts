@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import type {
   ApplyMoveRequest,
+  CandidateOut,
+  LinkCompletedRequest,
   MoveRequest,
   ProposalOut,
   WorkoutDetailOut,
@@ -47,6 +49,28 @@ export function useApplyMove() {
   return useMutation({
     mutationFn: async (vars: { workoutId: string; body: ApplyMoveRequest }) => {
       await api.post(`/workouts/${vars.workoutId}/apply-move`, vars.body);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['plan'] });
+      void qc.invalidateQueries({ queryKey: ['workout'] });
+    },
+  });
+}
+
+export function useLinkCandidates(workoutId: string | null, open: boolean) {
+  return useQuery({
+    queryKey: ['link-candidates', workoutId],
+    enabled: workoutId !== null && open,
+    queryFn: async () =>
+      (await api.get<CandidateOut[]>(`/workouts/${workoutId}/strava-candidates`)).data,
+  });
+}
+
+export function useLinkCompleted() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { workoutId: string; body: LinkCompletedRequest }) => {
+      await api.post(`/workouts/${vars.workoutId}/link-completed`, vars.body);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['plan'] });

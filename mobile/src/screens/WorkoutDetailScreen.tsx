@@ -7,12 +7,14 @@ import { useSkipWorkout, useWorkoutDetail } from '@/api/hooks/useWorkouts';
 import type { CompletedWorkoutOut, PlannedWorkoutOut, ReconciliationOut } from '@/api/types';
 import { DisplacedSheet } from '@/components/DisplacedSheet';
 import { EditQuestSheet } from '@/components/EditQuestSheet';
+import { LinkRunSheet } from '@/components/LinkRunSheet';
 import { LogCompletedSheet } from '@/components/LogCompletedSheet';
 import { ProposalSheet } from '@/components/ProposalSheet';
 import { RetroBorder } from '@/components/retro/RetroBorder';
 import { RetroButton } from '@/components/retro/RetroButton';
 import { SectionHeader } from '@/components/SectionHeader';
 import { useEditFlow } from '@/hooks/useEditFlow';
+import { useLinkFlow } from '@/hooks/useLinkFlow';
 import { useLogFlow } from '@/hooks/useLogFlow';
 import { dayName, fromIso, startOfWeek, toIso } from '@/lib/dates';
 import { BrandBanner } from '@/components/BrandBanner';
@@ -147,6 +149,7 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
   const skip = useSkipWorkout();
   const flow = useEditFlow();
   const log = useLogFlow();
+  const link = useLinkFlow();
   const weekStartIso = flow.editTarget !== null
     ? toIso(startOfWeek(fromIso(flow.editTarget.scheduled_date)))
     : null;
@@ -272,13 +275,21 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
          detail.data.planned.type !== 'rest' &&
          detail.data.planned.status !== 'done' &&
          detail.data.planned.status !== 'skipped' && (
-          <View style={{ flex: 1 }}>
-            <RetroButton
-              label="Mark done"
-              tone="primary"
-              onPress={() => { log.open(detail.data!.planned!); }}
-            />
-          </View>
+          <>
+            <View style={{ flex: 1 }}>
+              <RetroButton
+                label="Mark done"
+                tone="primary"
+                onPress={() => { log.open(detail.data!.planned!); }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <RetroButton
+                label="Link a run →"
+                onPress={() => { link.open(detail.data!.planned!); }}
+              />
+            </View>
+          </>
         )}
         <View style={{ flex: 1 }}>
           <RetroButton
@@ -321,6 +332,15 @@ export function WorkoutDetailScreen({ route, navigation }: Props) {
         onClose={log.close}
         onSync={log.triggerSync}
         syncPending={log.syncPending}
+      />
+      <LinkRunSheet
+        ref={link.sheetRef}
+        workout={link.target}
+        candidates={link.candidatesData ?? []}
+        loading={link.candidatesLoading}
+        submitting={link.submitting}
+        onConfirm={link.confirm}
+        onClose={link.close}
       />
     </SafeAreaView>
   );

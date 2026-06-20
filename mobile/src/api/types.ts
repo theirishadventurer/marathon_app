@@ -308,6 +308,21 @@ export interface LogCompletedResponse {
   reconciliation: ReconciliationOut;
 }
 
+// link-completed
+export interface CandidateOut {
+  completed_id: UUID;
+  activity_date: IsoDate;
+  activity_type: string;
+  distance_mi: number | null;
+  duration_min: number;
+  avg_pace_str: string | null;
+  source: string;
+}
+
+export interface LinkCompletedRequest {
+  completed_id: string;
+}
+
 // Feat C — start-date reset
 export interface StartDateRequest {
   new_start_date: IsoDate;
