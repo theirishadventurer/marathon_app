@@ -11,3 +11,11 @@ alembic/versions/*.pyc
 node_modules/
 mobile/.expo/
 docs/session-logs/.last-seen-sha
+
+# Garmin residential agent — local secrets
+scripts/garmin_agent/.env
+scripts/garmin_agent/.garth_token
+scripts/garmin_agent/.venv/
+scripts/garmin_agent/**/__pycache__/
+scripts/garmin_agent/agent.log
+scripts/garmin_agent/agent.log.*

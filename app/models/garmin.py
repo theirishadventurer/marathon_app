@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,3 +23,6 @@ class GarminAuthState(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_error_at: Mapped[datetime | None] = mapped_column(nullable=True)
     needs_reauth: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    sync_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

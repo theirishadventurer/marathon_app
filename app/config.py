@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     strava_client_id: str = ""
     strava_client_secret: str = ""
     strava_redirect_uri: str = ""
+    garmin_ingest_token: str = ""
+    garmin_ingest_athlete_email: str = ""
     tz: str = "America/New_York"
     jwt_expiry_days: int = 30
 
@@ -60,6 +62,12 @@ class Settings(BaseSettings):
                     "SECRET_KEY is too short for production (must be >= 32 chars). "
                     "Generate one with `python -c \"import secrets; "
                     'print(secrets.token_hex(32))"`.'
+                )
+            if not self.garmin_ingest_token:
+                raise RuntimeError(
+                    "GARMIN_INGEST_TOKEN is unset in production. Generate one with "
+                    "`python -c \"import secrets; print(secrets.token_urlsafe(32))\"` "
+                    "and set it in the Railway environment."
                 )
 
 
