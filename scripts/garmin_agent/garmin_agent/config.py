@@ -61,4 +61,12 @@ def get_garth_token() -> str | None:
 
 
 def set_garth_token(value: str) -> None:
-    GARTH_TOKEN_PATH.write_text(value, encoding="utf-8")
+    # Write owner-only (0o600) so the OAuth token blob is not world/group-readable
+    # on POSIX hosts (e.g. when this agent is moved to a Linux Pi/mini-PC, per the
+    # README). On Windows the mode is effectively ignored and NTFS ACLs from the
+    # user profile apply. O_CREAT only sets the mode on creation, so chmod
+    # defensively in case a looser-permission file already exists.
+    fd = os.open(GARTH_TOKEN_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(value)
+    os.chmod(GARTH_TOKEN_PATH, 0o600)
