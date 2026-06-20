@@ -31,14 +31,20 @@ def client_from_token(token: str) -> Garmin:
 
 
 def fetch(client: Garmin, lookback_days: int) -> tuple[list[dict], list[dict]]:
-    start = (date.today() - timedelta(days=lookback_days)).isoformat()
-    end = date.today().isoformat()
-    activities = client.get_activities_by_date(start, end) or []
+    today = date.today()
+    start = today - timedelta(days=lookback_days)
+    activities = client.get_activities_by_date(start.isoformat(), today.isoformat()) or []
+    # get_stats() returns the daily summary (calendarDate, restingHeartRate,
+    # bodyBattery*). sleepScore / hrvOvernight / trainingReadiness / trainingStatus
+    # live on separate Garmin endpoints (get_sleep_data / get_hrv_data /
+    # get_training_readiness / get_training_status, all confirmed present in
+    # garminconnect 0.2.25) and stay null until fetch is enriched against a live
+    # payload during the Task 13 smoke-test. map_metric tolerates the nulls.
     metrics: list[dict] = []
-    cursor = date.today() - timedelta(days=lookback_days)
-    while cursor <= date.today():
+    cursor = start
+    while cursor <= today:
         try:
-            stats = client.get_daily_stats(cursor.isoformat())
+            stats = client.get_stats(cursor.isoformat())
             if stats:
                 metrics.append(stats if isinstance(stats, dict) else stats[0])
         except Exception as exc:  # noqa: BLE001
