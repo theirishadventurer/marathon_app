@@ -33,23 +33,59 @@ def client_from_token(token: str) -> Garmin:
     return client
 
 
+def enrich_metric(client: Garmin, cdate: str, day: dict) -> None:
+    """Merge recovery fields from the separate Garmin endpoints into the daily
+    get_stats() dict, under the exact keys map_metric reads. get_stats() carries
+    only the daily summary (restingHeartRate, bodyBattery*); sleep score/duration,
+    overnight HRV, training readiness and training status each live on their own
+    endpoint. Each endpoint is isolated in its own try/except so one failure does
+    not drop the others, and only present values are written (so a missing day
+    leaves map_metric's null-tolerant fields untouched). Mutates `day` in place.
+    """
+    try:
+        sleep = client.get_sleep_data(cdate) or {}
+        dto = sleep.get("dailySleepDTO") or {}
+        overall = (dto.get("sleepScores") or {}).get("overall") or {}
+        if overall.get("value") is not None:
+            day["sleepScore"] = overall["value"]
+        if dto.get("sleepTimeSeconds") is not None:
+            day["sleepDurationSeconds"] = dto["sleepTimeSeconds"]
+        if sleep.get("avgOvernightHrv") is not None:
+            day["hrvOvernight"] = sleep["avgOvernightHrv"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sleep/hrv enrich failed for %s: %s", cdate, exc)
+    try:
+        tr = client.get_training_readiness(cdate) or []
+        if isinstance(tr, list) and tr and tr[0].get("score") is not None:
+            day["trainingReadiness"] = tr[0]["score"]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("training-readiness enrich failed for %s: %s", cdate, exc)
+    try:
+        ts = client.get_training_status(cdate) or {}
+        latest = (ts.get("mostRecentTrainingStatus") or {}).get("latestTrainingStatusData") or {}
+        for dev in latest.values():
+            phrase = (dev or {}).get("trainingStatusFeedbackPhrase")
+            if phrase:
+                day["trainingStatus"] = phrase
+                break
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("training-status enrich failed for %s: %s", cdate, exc)
+
+
 def fetch(client: Garmin, lookback_days: int) -> tuple[list[dict], list[dict]]:
     today = date.today()
     start = today - timedelta(days=lookback_days)
     activities = client.get_activities_by_date(start.isoformat(), today.isoformat()) or []
-    # get_stats() returns the daily summary (calendarDate, restingHeartRate,
-    # bodyBattery*). sleepScore / hrvOvernight / trainingReadiness / trainingStatus
-    # live on separate Garmin endpoints (get_sleep_data / get_hrv_data /
-    # get_training_readiness / get_training_status, all confirmed present in
-    # garminconnect 0.2.25) and stay null until fetch is enriched against a live
-    # payload during the Task 13 smoke-test. map_metric tolerates the nulls.
     metrics: list[dict] = []
     cursor = start
     while cursor <= today:
+        cdate = cursor.isoformat()
         try:
-            stats = client.get_stats(cursor.isoformat())
+            stats = client.get_stats(cdate)
             if stats:
-                metrics.append(stats if isinstance(stats, dict) else stats[0])
+                day = stats if isinstance(stats, dict) else stats[0]
+                enrich_metric(client, cdate, day)
+                metrics.append(day)
         except Exception as exc:  # noqa: BLE001
             logger.warning("daily stats failed for %s: %s", cursor, exc)
         cursor += timedelta(days=1)
