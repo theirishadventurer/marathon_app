@@ -23,8 +23,11 @@ def login_interactive(email: str) -> str:
 
 def client_from_token(token: str) -> Garmin:
     client = Garmin()
-    client.garth.loads(token)
-    client.login()  # refreshes via cached token; no password
+    # garminconnect resumes a saved session when the token string (>512 chars) is
+    # passed to login() — it calls garth.loads internally and skips SSO. Calling
+    # login() with no argument instead attempts a fresh SSO login with empty
+    # credentials (401). The garth token carries OAuth creds only; no password.
+    client.login(tokenstore=token)
     if getattr(client, "garth", None) is None:
         raise RuntimeError("Cached token rejected — re-run with --login.")
     return client
