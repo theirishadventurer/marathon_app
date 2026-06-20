@@ -96,6 +96,12 @@ service name `marathon-garmin-agent` in Windows Credential Manager.
 
 ## 5. Interactive Garmin login (one-time, with MFA)
 
+> **Do this from a residential IP.** Garmin's SSO rejects datacenter/VPN IPs with
+> HTTP 401, so configure the NordVPN split tunnel (step 6) **first**, or simply
+> disconnect NordVPN for this one-time login. `--login` runs the same fail-closed
+> egress guard as the sync path and aborts with a clear instruction (rather than a
+> cryptic 401 traceback) if you are on a VPN.
+
 ```cmd
 .venv\Scripts\python.exe -m garmin_agent.agent --login
 ```
@@ -105,7 +111,10 @@ This will:
    never stored to disk).
 2. If your account has two-factor authentication enabled, prompt for the MFA
    code on the console.
-3. Cache the resulting `garth` session token in Windows Credential Manager.
+3. Cache the resulting `garth` session token to a gitignored local file
+   (`.garth_token`, written owner-only / `0o600`). It holds OAuth tokens only —
+   never your password. (Windows Credential Manager can't hold it: its ~2560-byte
+   per-credential limit is smaller than the token blob.)
 
 After this step the agent can sync without your password.  Re-run `--login`
 any time `agent.log` reports that the cached token was rejected.
@@ -130,14 +139,20 @@ are logged in `agent.log`.
 
 1. Open **NordVPN** → **Settings** → **Split Tunneling**.
 2. Enable split tunneling, set mode to **"Disable VPN for selected apps"**.
-3. Click **Add apps** and add:
+3. Click **Add apps** and add **both** of these — a venv `python.exe` on Windows
+   is a thin redirector to the base interpreter, so NordVPN must bypass both or
+   the real network process still exits through the VPN:
    ```
    scripts\garmin_agent\.venv\Scripts\python.exe
+   C:\Python313\python.exe
    ```
-4. Save.
+   (Adjust the second path to wherever your base Python is installed.)
+4. Save, then **reconnect** NordVPN — the rule only applies on a fresh connect.
 
 After this, the agent's Python process routes through your home ISP while all
-other traffic stays on NordVPN.
+other traffic stays on NordVPN. Verify with a one-off run of
+`--once` (or the egress line in `agent.log`): it should report a residential IP
+**while NordVPN is connected**.
 
 ### Optional: whitelist a known home IP prefix
 
@@ -257,28 +272,25 @@ home WiFi instead of your laptop:
 
 ## 11. Known limitations / follow-ups
 
-### Metrics enrichment (daily summary only)
+### Daily metrics — fully enriched
 
-The agent currently fetches daily metrics via `get_stats(date)`, which returns
-the **daily summary only**.  Fields populated from this endpoint:
+Each day combines `get_stats(date)` (resting HR, body battery) with these extra
+endpoints, merged in `garmin_fetch.enrich_metric()` (field paths validated
+against live payloads):
 
-- `restingHeartRate`
-- `bodyBattery*` values
-
-The following fields are returned as `null` until a follow-up enrichment pass
-is implemented:
-
-| Field | Garmin SDK endpoint needed |
+| Field | Source |
 |---|---|
-| `sleepScore` | `get_sleep_data(date)` |
-| `hrvOvernight` | `get_hrv_data(date, date)` |
-| `trainingReadiness` | `get_training_readiness(date)` |
-| `trainingStatus` | `get_training_status(date)` |
+| `sleepScore` | `get_sleep_data → dailySleepDTO.sleepScores.overall.value` |
+| `sleepDurationSeconds` | `get_sleep_data → dailySleepDTO.sleepTimeSeconds` |
+| `hrvOvernight` | `get_sleep_data.avgOvernightHrv` |
+| `trainingReadiness` | `get_training_readiness[0].score` |
+| `trainingStatus` | `get_training_status → …latestTrainingStatusData.<dev>.trainingStatusFeedbackPhrase` |
 
-All four endpoints are present in `garminconnect 0.2.25`.  `null` values for
-these fields during the smoke-test are expected and not a bug.  A follow-up
-task will merge these endpoints into `garmin_fetch.fetch()` after validating
-the response shapes against a live payload.
+Each endpoint is fetched in its own try/except, so one failing endpoint only
+drops its own field; a day with no data simply leaves those fields `null`
+(the backend's `map_metric` is null-tolerant). The ingest endpoint merges
+metrics by date, so re-running picks up fields that land late (HRV/sleep can
+post hours after midnight).
 
 ### ip-api.com availability
 

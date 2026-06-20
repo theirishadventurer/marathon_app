@@ -97,6 +97,22 @@ def main() -> None:
     cfg = cfgmod.load_config()
 
     if args.login:
+        # Garmin SSO 401s a datacenter/VPN IP just like the sync path, but with a
+        # cryptic traceback. Guard the interactive login too so the operator gets a
+        # clear instruction instead.
+        try:
+            ip, is_dc = check_egress(cfg.allowed_ip_prefixes)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Egress IP check failed (%s); refusing --login. Retry when online.", exc)
+            sys.exit(1)
+        if is_dc:
+            logger.error(
+                "ABORT: egress IP %s looks like a datacenter/VPN exit. Garmin will "
+                "reject the login (401). Disconnect the VPN (or split-tunnel both the "
+                "venv python.exe AND the base interpreter), then retry --login.",
+                ip,
+            )
+            sys.exit(1)
         cfgmod.set_garth_token(login_interactive(cfg.garmin_email))
         logger.info("Garmin token cached. You can now run --once / --watch.")
     elif args.set_secrets:
