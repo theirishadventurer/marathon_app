@@ -38,7 +38,9 @@
 
 **Enhancement:** recovery-metric enrichment (`3f3bad1`) — `enrich_metric()` merges sleep score/duration, overnight HRV, training readiness, training status from separate Garmin endpoints (live-validated field paths); +3 unit tests.
 
-**Remaining (user-side, non-blocking):** Windows Task Scheduler `--watch` logon task; optional on-demand "Sync now" verification.
+**Follow-on (same session, shipped to prod):** mobile **"Link a run →"** UI on `WorkoutDetailScreen` — picks a nearby synced/completed activity (source-agnostic) and links it to a planned workout via the already-live `strava-candidates` + `link-completed` endpoints (`LinkRunSheet` + `useLinkFlow`, mirrors the log-completed flow). Closed the gap where synced Garmin runs couldn't be attached to planned workouts. tsc clean; live-confirmed linking works.
+
+**Remaining (user-side, non-blocking):** scheduled `--watch` task is registered but uses `pythonw.exe`, which NordVPN's split-tunnel doesn't yet bypass (add `…\.venv\Scripts\pythonw.exe` + `C:\Python313\pythonw.exe`, or switch the task to the already-tunneled `python.exe`). Manual `--watch` covers syncs meanwhile.
 
 **Plan:** `docs/superpowers/plans/2026-06-17-residential-garmin-agent.md`.
 
