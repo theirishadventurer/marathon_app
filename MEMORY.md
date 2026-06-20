@@ -1,6 +1,25 @@
 # Project Memory
 
-## Current Status (2026-06-17, Session 4)
+## Current Status (2026-06-20, Session 5)
+
+**Branch:** `master` — Session 5 (residential Garmin ingest agent) MERGED (`f4d8dd3`), deployed to Railway, and **live in production.** Garmin now syncs from a residential-IP laptop agent. (Session 4 Strava backend remains unmerged on its own branch.)
+
+**Session 5 (subagent-driven dev + live collaborative smoke-test):**
+- Solved Garmin's WAF datacenter-IP 429 (which made server-side Railway sync impossible) by splitting sync into laptop *fetch* (residential IP) + Railway *store* (`POST /garmin/ingest`, never contacts Garmin). On-demand "Sync now" via PWA → `request-sync` flag the agent polls.
+- Phase 3 laptop agent `scripts/garmin_agent/` built task-by-task (implementer→reviewer→fix-loop, opus final review). Agent suite **15/15**.
+- **Live smoke-test PASSED in prod:** 10 activities + 15 fully-enriched daily metrics (incl. sleep/HRV/readiness/status) ingested. Dedup (activities) + merge-by-date (metrics) verified.
+
+**Lessons (Session 5) — all surfaced only in the LIVE test, not unit/import tests:**
+- **garminconnect session resume:** `Garmin().login(tokenstore=<str>)` (>512 chars → internal `garth.loads`). Doing `garth.loads(t); client.login()` re-runs SSO with empty creds → **401**. This is THE non-obvious garminconnect gotcha.
+- **garth token (~4 KB) > Windows Credential Manager ~2560-byte limit** → `CredWrite WinError 1783`. Store garth token in a gitignored `0o600` file (`.garth_token`); keyring only for the small ingest token.
+- **`--login` is datacenter/VPN-blocked like sync** — needs residential IP. NordVPN app split-tunnel must bypass BOTH the venv `python.exe` AND the base interpreter (venv exe is a redirector), and you must reconnect the VPN for the rule to apply.
+- **Recovery metrics live on separate endpoints** (not `get_stats`): paths in `garmin_fetch.enrich_metric()`. `get_daily_stats` doesn't exist on 0.2.25 — use `get_stats`.
+- **Deploy/config traps:** Railway deploys `master` (feature branch = `/garmin/*` 404 until merged); `GARMIN_INGEST_ATHLETE_EMAIL` = app-login email not Garmin email (else 400). `getpass` is invisible-by-design and breaks in IDE-integrated terminals → use standalone PowerShell.
+- **Live smoke-tests are irreplaceable:** every Phase-3 bug above passed the 15-test suite and opus review, then failed on first real run. Reviewed-clean ≠ works-live for anything touching an external SDK/host/network.
+
+**Remaining (user-side, non-blocking):** Windows Task Scheduler `--watch` logon task; optional on-demand "Sync now" check.
+
+## Prior Status (2026-06-17, Session 4)
 
 **Branch:** `session-4/strava-integration` — Strava polling-ingestion backend BUILT + overnight-QA'd, **NOT merged** (awaiting review). 19 commits; 159 tests green; ruff clean. `master` holds Sessions 1–3.1.
 

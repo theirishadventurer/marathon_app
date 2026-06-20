@@ -16,8 +16,31 @@
 | Session 3 — Coach Chat (Gemini) + security hardening | ✅ Done (merged + deployed) | `master` | Free-form Gemini coach chat live in prod. Security audit → fail-closed `SECRET_KEY`/`SEED_PASSWORD` in prod. iPhone Safari week-scroll bug fixed. Daily Coach / Run Analyst still deferred. |
 | Session 3.1 — Production activation + coach behavior fix | ✅ Done | `master` | Set Railway `APP_ENV`/`SECRET_KEY`/`SEED_PASSWORD`/`GEMINI_API_KEY`; merged `session-3` → master; rotated live athlete password via `reset_password`; fixed coach over-proposing (system-prompt steering); SDLC principles added to global CLAUDE.md; repo junk cleanup. |
 | Session 4 — Strava integration backend (polling) | 🔨 Built + QA'd, NOT merged | `session-4/strava-integration` | Full OAuth polling-ingestion backend (19 commits) via subagent-driven dev + overnight adversarial QA. 159 tests green. Ingest-only sync + explicit mark-complete linkage. QA found+fixed OAuth CSRF, 3 sync crash modes (C1/H1/M1), session-poisoning. **Pending:** Strava app registration + Railway env vars + live smoke-test, then merge. Mobile UI is a separate plan. |
+| Session 5 — Residential Garmin ingest agent | ✅ Done + merged + live in prod | `master` (merge `f4d8dd3`) | Split sync: laptop *fetch* (residential IP, dodges Garmin WAF 429) + Railway *store*. Backend ingest API + standalone laptop agent (`scripts/garmin_agent/`) via subagent-driven dev. **Live smoke-test PASSED**: 10 activities + 15 fully-enriched daily metrics (sleep/HRV/readiness/status) syncing to prod. NordVPN split-tunnel + Task Scheduler. |
 
 ## Sprint History
+
+### Session 5 — Residential Garmin Ingest Agent (2026-06-19 → 2026-06-20)
+
+**Goal:** Defeat Garmin's WAF datacenter-IP 429 (blocks server-side sync from Railway) by moving the Garmin fetch onto a residential laptop agent that POSTs to a token-authenticated backend ingest endpoint, with an on-demand "Sync now" PWA trigger.
+
+**Status:** ✅ Done, merged to `master` (`f4d8dd3`), deployed to Railway, **live-smoke-tested end-to-end in production.**
+
+**Delivered:**
+- **Phase 1-2 (backend):** `POST /garmin/ingest` (token-gated, dedup, per-item skip), `GET /garmin/poll`, `POST /garmin/request-sync`; `sync_requested_at` migration (`767ce537f1dc`); PWA Sync-now repointed; fail-closed `GARMIN_INGEST_TOKEN` prod check.
+- **Phase 3 (laptop agent, subagent-driven):** `scripts/garmin_agent/` — keyring/file-backed config, fail-closed egress IP guard (ip-api), garth fetch wrapper, ingest API client, CLI (`--login`/`--set-secrets`/`--once`/`--watch`), README runbook. Agent suite **15/15**, each task implementer→reviewer→fix-loop + opus final review.
+
+**Live smoke-test bugs found + fixed (import tests couldn't catch):**
+- `client_from_token` used `garth.loads` + `login()` → fresh SSO w/ empty creds → 401. Fixed to `login(tokenstore=token)` (`72c0b4c`).
+- garth token blob >2560B → Windows `CredWrite` `WinError 1783`. Moved garth token keyring→gitignored `.garth_token` file, `0o600` (`6512081`/`a25a190`).
+- `--login` 401'd on NordVPN datacenter IP (no egress guard) → added guard + clear message (`b8d3b3b`); README step-order fixed.
+- Railway deploys `master` → `/garmin/*` 404 until merged; `GARMIN_INGEST_ATHLETE_EMAIL` must be app-login email, not Garmin email (400).
+
+**Enhancement:** recovery-metric enrichment (`3f3bad1`) — `enrich_metric()` merges sleep score/duration, overnight HRV, training readiness, training status from separate Garmin endpoints (live-validated field paths); +3 unit tests.
+
+**Remaining (user-side, non-blocking):** Windows Task Scheduler `--watch` logon task; optional on-demand "Sync now" verification.
+
+**Plan:** `docs/superpowers/plans/2026-06-17-residential-garmin-agent.md`.
 
 ### Session 4 — Strava Integration Backend + Overnight QA (2026-06-16 → 2026-06-17)
 
