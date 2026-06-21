@@ -42,10 +42,16 @@ else is "any day."
 | Easy run #1 | **Core** | any weekday |
 | Easy run #2 | **Core** | any weekday |
 | Strength / cross ("The King", 1×, was 2) | **Core** | any day |
-| Easy/recovery run #3 (the 5th run) | **Optional** | any day |
+| Easy aerobic run (the 5th run) | **Optional** | any day |
 | Sunday recovery run | **Optional** | Sun |
 
 **Floor = 4 core runs + 1 strength. Target = 5 runs** (the optional 5th).
+
+**The optional 5th run** is an **easy aerobic run, ~4 mi at Z2 / conversational
+pace (12:00–13:30)**, scaling with the week (≈3 mi cutback, 4–5 mi build/peak).
+It is deliberately distinct from the 2–3 mi Sunday recovery shakeout: this one is
+base-building aerobic volume (high value when it happens), the Sunday run is a
+recovery flush. Both optional.
 
 ### The single strength/cross day — "The King"
 ~45–60 min, **core**, any day, replaces the old Strength A (Mon) + Strength B (Fri):
@@ -162,9 +168,9 @@ strand a ghost:
 - No auto-reconcile changes (separate decision).
 - Cross-training variety (bike/swim) beyond the metcon — future.
 
-## Open questions
+## Resolved decisions
 
-1. Keep glute-med/hip **prehab** as the strength-day warm-up (recommended, given
-   injury history) — confirm, or drop for time.
-2. Does the **optional 5th run** have a default type/distance, or is it a generic
-   "easy, your call" placeholder?
+1. **Keep** the glute-med/hip prehab as the strength-day warm-up (given the
+   IT-band / lateral-knee history).
+2. The **optional 5th run** = easy aerobic ~4 mi at Z2 (12:00–13:30), scaling
+   ≈3 mi cutback / 4–5 mi build, distinct from the Sunday recovery shakeout.
